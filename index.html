@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.6';
+const VERSION='v4.7';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -695,7 +695,7 @@ function buildHole0(course,geo,hi,teeIdx,opts){
   // cup placement
   const okCup=(x,y,r)=>{for(let a=0;a<8;a++){const s=surfAt(x+Math.cos(a/8*TAU)*r,y+Math.sin(a/8*TAU)*r);if(s!==5)return false}return surfAt(x,y)===5};
   let cup=null;const RC=RNG((opts.cupSeed||'')+course.id+hi);
-  for(let tries=0;tries<200&&!cup;tries++){const a=RC()*TAU,d=Math.sqrt(RC())*grad;const x=gcx+Math.cos(a)*d,y=gcy+Math.sin(a)*d;if(okCup(x,y,tries<120?5:3)){const q=greenG(x,y);if(Math.hypot(q[0],q[1])<.03||tries>150)cup={x,y}}}
+  for(let tries=0;tries<200&&!cup;tries++){const a=RC()*TAU,lo=opts.cupHard&&tries<150?.3+.45*opts.cupHard:0,d=(lo+(1-lo)*Math.sqrt(RC()))*grad;const x=gcx+Math.cos(a)*d,y=gcy+Math.sin(a)*d;if(okCup(x,y,tries<120?5:3)){const q=greenG(x,y);if(Math.hypot(q[0],q[1])<.03||tries>150)cup={x,y}}}
   if(opts.cupRaw){const c=tf(opts.cupRaw);if(surfAt(c[0],c[1])===5)cup={x:c[0],y:c[1]}}
   if(!cup)cup={x:gcx,y:gcy};
   if(opts.probe)return{cupRaw:toRaw(cup.x,cup.y),T0:T0.slice(),L};
@@ -1906,7 +1906,7 @@ function updPutt(){const ft=(G.sw&&G.sw.ft)||0;if(!$('pFt'))return;$('pFt').text
 function startRound(cid,tee,start,n,players,gimme,tod){const c=CID[cid];const pl=(players&&players.length?players:[{name:ownerName(),owner:1}]).map(p=>({name:String(p.name).slice(0,16)||'Player',owner:!!p.owner,sc:[],pt:[],fir:[],gir:[],dr:[],pen:[]}));G.round={id:cid+':'+Date.now(),cid,tee,start,n,i:0,gimme:gimme||0,tod:tod||todKey(),sc:[],pt:[],fir:[],gir:[],dr:[],pen:[],d:todayKey(),players:pl};G.mode='round';loadRoundHole(null)}
 function loadRoundHole(rs){const r=G.round,c=CID[r.cid],idx=r.start+r.i;hideScreens();$('hud').classList.add('on');$('modeBar').classList.add('hide');$('rangeP').classList.remove('on');clearLabels();
   G.allowed=null;G.target=null;G.extraBalls=null;G.cupOn=true;G.afterRest=null;
-  const H=buildHole(c,GEO[c.id],idx,r.tee,{cupSeed:r.id});setHole(H);G.wind=windFor(r.id+'#'+idx);carryReset();
+  const H=buildHole(c,GEO[c.id],idx,r.tee,{cupSeed:r.id,cupHard:G.endless&&G.endless.on?Math.min(1,G.endless.streak/8):0});setHole(H);G.wind=windFor(r.id+'#'+idx);carryReset();
   G.ball={x:0,y:0,surf:S_TEE};G.strokes=0;G.pen=0;G.putts=0;G.hs={fir:null,gir:false,dr:0};G.lm=null;G.R.tracerN=0;
   G.onShot=(lm,res)=>{if(G.lastPos.surf===S_GREEN||G.club===PUTTER)G.putts++};
   G.onRest=(res,msg)=>{const H=G.H;if(G.strokes-G.pen===1&&H.par>3&&G.lastPos.surf===S_TEE){G.hs.fir=!msg&&G.ball.surf===S_FW;if(!msg&&G.anim.ci===0){G.hs.dr=Math.round(G.lm.total);noteDrive(G.hs.dr)}}
@@ -3134,13 +3134,15 @@ function leafSlow(S,i,F,h0,H){try{if(i<2)return 0;const k=.75+Math.random()*.1;c
 {const _s=sfx;sfx=function(k,q){if(k==='hit'&&typeof AC!=='undefined'&&AC&&Number.isFinite(q)){try{const C=CLUBS[G.club]||{};const qr=clamp(q/(C.sm||1.4),.7,1);const Q=Math.pow((qr-.7)/.3,2);const t=AC.currentTime;
   const o=AC.createOscillator(),g=AC.createGain();o.type=Q>.6?'triangle':'sine';o.frequency.setValueAtTime(380+Q*1500,t);o.frequency.exponentialRampToValueAtTime(220+Q*900,t+.09);g.gain.setValueAtTime(.03+Q*.05,t);g.gain.exponentialRampToValueAtTime(.0001,t+.06+Q*.1);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+.2)}catch(e){}}return _s.apply(this,arguments)}}
 /* v4.6: putting line preview (toggle) — dotted predicted roll at the plays-like pace */
-function plOn(){return store('ts.pline')===1}
-function plBtn(){const a=$('acts');if(!a)return;let b=$('bPL');if(!b){b=document.createElement('button');b.className='ib';b.id='bPL';b.title='Putt line preview';b.onclick=e=>{e.stopPropagation();store('ts.pline',plOn()?0:1);plBtn()};a.appendChild(b)}b.style.display=G.phase==='putt'?'':'none';const t='LINE: '+(plOn()?'ON':'OFF');if(b.textContent!==t)b.textContent=t}
+function plCar(){const r=G.round;return !!((r&&r.car)||G.crCh)}
+function plAllowed(){if(!plCar())return true;try{return !!crCad(crLoad())}catch(e){return false}}
+function plOn(){return store('ts.pline')===1&&plAllowed()}
+function plBtn(){const a=$('acts');if(!a)return;let b=$('bPL');if(!b){b=document.createElement('button');b.className='ib';b.id='bPL';b.title='Putt line preview';b.onclick=e=>{e.stopPropagation();if(!plOn()&&!plCar()&&G.round&&!confirm('Putt line preview is an assist.\nIf you use it, this round will NOT count toward your records (best rounds, records) and is marked assisted.'))return;store('ts.pline',plOn()?0:1);plBtn()};a.appendChild(b)}b.style.display=G.phase==='putt'&&plAllowed()?'':'none';const t='LINE: '+(plOn()?'ON':'OFF');if(b.textContent!==t)b.textContent=t}
 setInterval(()=>{try{plBtn()}catch(e){}},500);
 let _plC=null,_plK='',_plP=null;
 function plDraw(){requestAnimationFrame(plDraw);try{if(!_plC){_plC=document.createElement('canvas');_plC.id='plC';_plC.style.cssText='position:fixed;left:0;top:0;pointer-events:none;z-index:3';document.body.appendChild(_plC)}
   const c=_plC;if(c.width!==innerWidth||c.height!==innerHeight){c.width=innerWidth;c.height=innerHeight}const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);
-  const H=G.H,b=G.ball;if(!plOn()||G.phase!=='putt'||!H||!b||!H.cup||G.mode==='range')return;
+  const H=G.H,b=G.ball;if(!plOn()||G.phase!=='putt'||!H||!b||!H.cup||G.mode==='range')return;if(G.round&&!plCar()&&!G.round.assisted){G.round.assisted=1;try{toast('Assisted round','Putt line used · this round will not count toward records',2600)}catch(e){}}
   const k=b.x.toFixed(2)+','+b.y.toFixed(2)+','+(G.aim||0).toFixed(3);if(k!==_plK){_plK=k;const ft=distYd(b,H.cup)*3;const up=(H.hAt(H.cup.x,H.cup.y)-H.hAt(b.x,b.y))*36;const pf=Math.max(1,ft+up+1.5);const rec=new Float32Array(9000);const r=puttRoll(b.x,b.y,G.aim,puttSpeedFor(pf/3),H.surfAt,H.slopeAt,H.cup,rec);_plP={rec,n:r.n||0}}
   const P=_plP;if(!P)return;x.fillStyle='rgba(255,255,255,.85)';const st=Math.max(1,Math.floor(P.n/40));for(let i=0;i<P.n;i+=st){const wx=P.rec[i*3],wy=P.rec[i*3+1];const s=project(wx,wy,H.hAt(wx,wy)+.02);if(s){x.beginPath();x.arc(s[0],s[1],2.2,0,7);x.fill()}}}catch(e){}}
 requestAnimationFrame(plDraw);
@@ -3160,6 +3162,32 @@ function lcLayout(){if(innerWidth<900)return;const a=$('acts'),sh=$('shot');if(!
   if(vis(lv)&&vis(ch)){const top=lv.getBoundingClientRect().top;const lr=lv.getBoundingClientRect();ch.style.top=Math.round(lr.bottom+8)+'px';const room=at-8-top-ch.offsetHeight-8;lv.style.maxHeight=Math.max(60,Math.floor(room))+'px'}
   else if(vis(lv)){const top=lv.getBoundingClientRect().top;lv.style.maxHeight=Math.max(60,Math.floor(at-8-top))+'px'}}
 setInterval(()=>{try{lcLayout()}catch(e){}},300);addEventListener('resize',()=>{try{lcLayout()}catch(e){}});
+
+/* v4.7: assisted rounds (putt line used) don't touch records or trophies */
+{const _f=finishRound;finishRound=function(){const r=G.round;if(!(r&&r.assisted&&!r.car))return _f.apply(this,arguments);const a=store('ts.rec'),t=store('ts.trophies');const out=_f.apply(this,arguments);store('ts.rec',a);store('ts.trophies',t);try{toast('Assisted round','Not counted toward records (putt line used)',3000)}catch(e){}return out}}
+
+/* ================= v4.7: Endless mode — random holes, par or better to survive, difficulty ramps with the streak ================= */
+G.endless=null;
+function endTeeFor(c,streak){const idx=c.tees.map((t,i)=>[t.y.reduce((a,b)=>a+b,0),i]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);return idx[Math.min(idx.length-1,Math.floor(streak/3))]}
+function endBest(){return +store('ts.endBest')||0}
+function startEndless(){G.endless={on:1,streak:0,seed:Date.now()};endNext()}
+function endNext(){const E=G.endless;const R=RNG('end'+E.seed+'#'+E.streak);const L=COURSES.filter(c=>GEO[c.id]);const c=L[Math.floor(R()*L.length)];const hi=Math.floor(R()*c.tees[0].y.length);
+  startRound(c.id,endTeeFor(c,E.streak),hi,1,null,0);if(G.round){G.round.endless=1;G.round.es=E.streak}
+  setTimeout(()=>{try{toast('Endless · streak '+E.streak,`${c.name} · hole ${hi+1} · par or better to keep going`,2600)}catch(e){}},400)}
+{const _w=windFor;windFor=function(seed){const w=_w.apply(this,arguments);const E=G.endless;if(E&&E.on){const k=Math.min(2.2,1+E.streak*.09);const mph=Math.max(w.mph*k,Math.min(14,E.streak*.8));const f=mph/Math.max(.5,w.mph);return{x:w.x*f,y:w.y*f,mph:Math.round(mph),a:w.a}}return w}}
+{const _m=crMeterK;crMeterK=function(){const E=G.endless;if(E&&E.on&&G.round&&G.round.endless)return Math.min(2.1,.9+E.streak*.1);return _m.apply(this,arguments)}}
+{const _n=nextHole;nextHole=function(){const r=G.round,E=G.endless;if(!(E&&E.on&&r&&r.endless))return _n.apply(this,arguments);$('next').style.display='none';
+  const sc=r.sc[0],par=G.H?G.H.par:4;if(Number.isFinite(sc)&&sc<=par){E.streak++;if(E.streak>endBest())store('ts.endBest',E.streak);endNext()}else endOver(sc,par)}}
+{const _hd=typeof holeDone==='function'?holeDone:null;}
+setInterval(()=>{try{const r=G.round,E=G.endless;if(E&&E.on&&r&&r.endless){const b=$('next');if(b&&b.style.display==='block'){const ok=r.sc[0]<=(G.H?G.H.par:4);const t=ok?'Next hole ▸':'See result ▸';if(b.textContent!==t)b.textContent=t}}}catch(e){}},300);
+function endOver(sc,par){const E=G.endless;E.on=0;const best=endBest();try{leaveToMenu()}catch(e){}
+  const s=show('scSetup',`<div class="pn" id="endScr"><div class="hdr"><h2>Endless · Game over</h2></div>
+  <div style="text-align:center;margin:14px 0"><div style="font-size:13px;opacity:.7;letter-spacing:.08em">STREAK</div><div style="font-size:54px;font-weight:900;color:#3fe0b0">${E.streak}</div>
+  <div style="opacity:.8">${sc-par===1?'Bogey':'+'+(sc-par)} ended the run · best streak <b>${best}</b>${E.streak>0&&E.streak>=best?' · new best!':''}</div></div>
+  <button class="btn" id="endAgain">Play again</button><button class="btn alt" id="endMenu">Main menu</button></div>`);
+  $('endAgain').onclick=startEndless;$('endMenu').onclick=showMenu}
+{const _lm=leaveToMenu;leaveToMenu=function(){if(G.endless&&G.endless.on&&!new Error().stack.includes('endOver'))G.endless.on=0;return _lm.apply(this,arguments)}}
+{const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{const m=document.querySelector('#scMenu .menu');if(m&&!$('mEnd')){const b=document.createElement('button');b.className='btn alt';b.id='mEnd';b.innerHTML=`Endless<small>Par or better on random holes · best streak ${endBest()}</small>`;b.onclick=startEndless;const after=$('mCart')||$('mPlay');after.after(b)}}catch(e){console.warn(e)}return out}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
