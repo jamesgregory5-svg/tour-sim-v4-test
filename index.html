@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.3';
+const VERSION='v4.4';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3103,6 +3103,19 @@ function sgOn(){const b=G.ball,C=CLUBS[G.club];return !!(b&&G.H&&C&&/W$/.test(C.
 function sgBtn(){const a=$('acts');if(!a)return;let b=$('bSG');if(!b){b=document.createElement('button');b.className='ib';b.id='bSG';b.title='Short-game shot (chip / pitch / flop)';b.onclick=e=>{e.stopPropagation();G.sg=(G.sg+1)%SG.length;sgBtn()};a.appendChild(b)}const on=sgOn();b.style.display=on?'':'none';const t='SHOT: '+SG[G.sg].n;if(b.textContent!==t)b.textContent=t}
 {const _x=executeShot;executeShot=function(inp){try{if(inp&&!Number.isFinite(inp.ft)&&G.sg&&sgOn()){const S=SG[G.sg];inp.dLoft=(inp.dLoft||0)+S.dl;if(Number.isFinite(inp.sy))inp.sy=Math.max(-1,Math.min(1,inp.sy+S.sy));G.sgUsed=S.n}}catch(e){}return _x.apply(this,arguments)}}
 setInterval(()=>{try{sgBtn()}catch(e){}},500);
+/* v4.4: draw / fade spin-rate sliders (50%-200% of the stock curve) */
+const SH0=SHAPES.map(s=>({f:s.f,p:s.p}));
+function spK(k){const v=+store(k);return Number.isFinite(v)&&v>=.5&&v<=2?v:1}
+function spApply(){const d=spK('ts.drawK'),f=spK('ts.fadeK');SHAPES[1].f=SH0[1].f*d;SHAPES[1].p=SH0[1].p*d;SHAPES[2].f=SH0[2].f*f;SHAPES[2].p=SH0[2].p*f;G.ringDirty=true}
+spApply();
+function spUI(){const sh=$('shape');if(!sh||$('bSpin'))return;const b=document.createElement('button');b.id='bSpin';b.textContent='⚙';b.title='Draw / fade spin amount';
+  const P=document.createElement('div');P.id='spinP';P.style.cssText='display:none;position:absolute;bottom:100%;right:0;margin-bottom:6px;background:rgba(10,16,20,.92);border-radius:10px;padding:10px 12px;font-size:12px;color:#fff;min-width:220px;z-index:30';
+  const row=(id,lab,k)=>`<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="width:40px">${lab}</span><input type=range id=${id} min=50 max=200 step=5 value=${Math.round(spK(k)*100)} style="flex:1"><b id=${id}V style="width:40px;text-align:right">${Math.round(spK(k)*100)}%</b></div>`;
+  P.innerHTML='<b>Spin amount</b>'+row('spD','Draw','ts.drawK')+row('spF','Fade','ts.fadeK');
+  b.onclick=e=>{e.stopPropagation();P.style.display=P.style.display==='none'?'':'none'};P.onclick=e=>e.stopPropagation();P.onpointerdown=e=>e.stopPropagation();
+  P.oninput=e=>{const r=e.target;if(r.id!=='spD'&&r.id!=='spF')return;store(r.id==='spD'?'ts.drawK':'ts.fadeK',+r.value/100);$(r.id+'V').textContent=r.value+'%';spApply()};
+  if(getComputedStyle(sh).position==='static')sh.style.position='relative';sh.appendChild(b);sh.appendChild(P)}
+setInterval(()=>{try{spUI()}catch(e){}},700);
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
