@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.2';
+const VERSION='v4.3';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -301,7 +301,7 @@ function flyBall(L,x0,y0,dir,wind,out){
     const cd=AERO.cd0+AERO.cd1*Sp,cl=Math.min(AERO.clMax,AERO.cl0*(W>1?1:0)+AERO.cl1*Sp);
     // lift dir = w x v / |w||v|
     let lx=wy*wvz-wz*wvy,ly=wz*wvx-wx*wvz,lz=wx*wvy-wy*wvx;const lm=Math.hypot(lx,ly,lz)||1;lx/=lm;ly/=lm;lz/=lm;
-    const D=kA*cd*V,Lf=kA*cl*V*V;
+    const D=kA*cd*V,Lf=kA*Math.sqrt(1.2/BALL.rho)*cl*V*V;
     const axx=-D*wvx+Lf*lx,ayy=-D*wvy+Lf*ly,azz=-D*wvz+Lf*lz-GRAV;
     vx+=axx*dt;vy+=ayy*dt;vz+=azz*dt;x+=vx*dt;y+=vy*dt;z+=vz*dt;t+=dt;
     const dec=Math.exp(-dt/AERO.tau);wx*=dec;wy*=dec;wz*=dec;
@@ -2648,7 +2648,7 @@ function ccNewRace(T,col){const L=ccBuildLine(T.pts);const mesh=ccMesh(ccTrackMe
   const carts=[];const grid=[[-14,-2.4],[-14,2.4],[-22,-2.4],[-22,2.4]];
   for(let k=0;k<4;k++){const gi=(L.N+grid[k][0])%L.N;const P=L.P[gi],h=L.H[gi];const lane=grid[k][1];
     carts.push({me:k===3,name:k===3?(ownerName()||'You'):CC_NAMES[k],col:k===3?col:cpuCols[k],x:P[0]-Math.sin(h)*lane,y:P[1]+Math.cos(h)*lane,h,v:0,idx:gi,prog:grid[k][0],lane,skill:base*(1+(k-1)*.025),laps:[],lapStart:0,fin:null,best:null,wob:k*1.7})}
-  CC.mapB=null;CC.spins=0;Object.assign(CC,{S,gr:9*Math.pow(S,.9),diff:d,T,L,mesh,props,carts,me:carts[3],t:-3.6,go:false,done:false,keys:{},cam:null,auto:CC.auto||false,lapsN:T.laps,hornT:0,shownRes:false})}
+  CC.mapB=null;CC.spins=0;Object.assign(CC,{cpuA:[1,1,1.08,1.17,1.28,1.4][d]||1,S,gr:9*Math.pow(S,.9),diff:d,T,L,mesh,props,carts,me:carts[3],t:-3.6,go:false,done:false,keys:{},cam:null,auto:CC.auto||false,lapsN:T.laps,hornT:0,shownRes:false})}
 function ccCurveV(L,i,look){let k=0;for(let j=0;j<look;j+=2)k=Math.max(k,L.K[(i+j)%L.N]);return k<1e-4?99:Math.min(99,Math.sqrt((CC.gr||9)/k))}
 function ccStep(dt){const L=CC.L;if(!L)return;CC.t+=dt;if(!CC.go&&CC.t>=0){CC.go=true;ccBeep(880,.35)}
   if(!CC.go){const n=Math.ceil(-CC.t);if(n!==CC.cd&&n<=3){CC.cd=n;ccBeep(440,.18)}return}
@@ -2662,10 +2662,10 @@ function ccStep(dt){const L=CC.L;if(!L)return;CC.t+=dt;if(!CC.go&&CC.t>=0){CC.go
     else{// follower AI (also used by test autopilot)
       const la=(c.idx+Math.max(6,Math.round(c.v*.7)))%L.N;const P=L.P[la],h=L.H[la];const lane=c.me?0:c.lane*Math.cos(CC.t*.25+c.wob);const tx=P[0]-Math.sin(h)*lane,ty=P[1]+Math.cos(h)*lane;
       let d=Math.atan2(ty-c.y,tx-c.x)-c.h;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;st=clamp(d*2.4,-1,1);
-      const vt=Math.min(13.2*CC.S*(c.me?1:c.skill),ccCurveV(L,c.idx,Math.round(30*CC.S)));if(c.v<vt)thr=1;else if(c.v>vt+.6)brk=1}
-    const q=ccNear(L,c.x,c.y,c.idx);const on=Math.abs(q.lat)<=CC_W/2+CC_CURB;const Sd=CC.S;const vmax=on?14*Sd:5.5*Math.sqrt(Sd);
-    if(thr&&c.v<vmax)c.v+=7*Sd*dt*(1-c.v/(vmax+2*Sd));if(c.v>vmax)c.v-=(c.v-vmax)*2.2*dt;if(brk)c.v=c.v>0?Math.max(0,c.v-15*Sd*dt):Math.max(-3,c.v-4*dt);if(!thr&&!brk)c.v*=1-.5*dt;
-    const yr=Math.min(1.9*Math.sqrt(Sd),CC.gr/Math.max(1,Math.abs(c.v)))*clamp(Math.abs(c.v)/4,0,1)*Math.sign(c.v||1);c.h+=st*yr*dt;
+      const vt=Math.min(13.2*CC.S*(c.me?1:c.skill*CC.cpuA),ccCurveV(L,c.idx,Math.round(30*CC.S))*(c.me?1:CC.cpuA));if(c.v<vt)thr=1;else if(c.v>vt+.6)brk=1}
+    const q=ccNear(L,c.x,c.y,c.idx);const on=Math.abs(q.lat)<=CC_W/2+CC_CURB;const Sd=CC.S;const Ac=c.me?1:(CC.cpuA||1);const vmax=(on?14*Sd:5.5*Math.sqrt(Sd))*Ac;
+    if(thr&&c.v<vmax)c.v+=7*Sd*dt*(Ac>1?Ac*(c.v<5?1+2*(Ac-1):1):1)*(1-c.v/(vmax+2*Sd));if(c.v>vmax)c.v-=(c.v-vmax)*2.2*dt;if(brk)c.v=c.v>0?Math.max(0,c.v-15*Sd*dt):Math.max(-3,c.v-4*dt);if(!thr&&!brk)c.v*=1-.5*dt;
+    const yr=Math.min(1.9*Math.sqrt(Sd)*Ac,CC.gr*Ac*Ac/Math.max(1,Math.abs(c.v)))*clamp(Math.abs(c.v)/4,0,1)*Math.sign(c.v||1);c.h+=st*yr*dt;
     c.x+=Math.cos(c.h)*c.v*dt;c.y+=Math.sin(c.h)*c.v*dt;c.dist=(c.dist||0)+c.v*dt;
     const q2=ccNear(L,c.x,c.y,c.idx);let di=q2.i-c.idx;if(di>L.N/2)di-=L.N;if(di<-L.N/2)di+=L.N;c.prog+=di;c.idx=q2.i;
     if(Math.abs(q2.lat)>CC_W/2+40){const P=L.P[q2.i],h=L.H[q2.i];c.x=P[0];c.y=P[1];c.h=h;c.v=0}// way off: reset to the track
@@ -3066,7 +3066,7 @@ addEventListener('keydown',e=>{if(e.code==='KeyT'&&!e.repeat&&teeHOn()&&!(e.targ
 function plWindAdj(d){const w=G.wind||{x:0,y:0};const a=G.aim||0;const head=-((w.x||0)*Math.cos(a)+(w.y||0)*Math.sin(a))*2.237;return head>0?d*.01*head:d*.005*head}
 function plText(){const H=G.H,b=G.ball;if(!H||!b)return'';const t=(typeof curTarget==='function'&&curTarget())||H.cup;const ci=G.club;const onG=b.surf===S_GREEN||ci===PUTTER;
   if(onG){const ft=distYd(b,H.cup)*3;const up=(H.hAt(H.cup.x,H.cup.y)-H.hAt(b.x,b.y))*36;const p=Math.max(0,ft+up);return`plays ${Math.round(p)} ft${Math.abs(up)>=1?' · '+Math.abs(up).toFixed(0)+' in '+(up>0?'up':'down'):' · flat'}`}
-  const d=distYd(b,t);const ev=elevTo(t);const wa=plWindAdj(d);const p=Math.round(d+ev+wa);const bits=[];if(Math.abs(ev*3)>=3)bits.push(Math.abs(ev*3).toFixed(0)+' ft '+(ev>0?'up':'down'));if(Math.abs(wa)>=1)bits.push('wind '+(wa>0?'+':'')+Math.round(wa));return`plays ${p}${bits.length?' · '+bits.join(' · '):' · level, calm'}`}
+  const d=distYd(b,t);const ev=elevTo(t);const wa=plWindAdj(d);const cf=condCF();const ad=(d+ev+wa)/cf-(d+ev+wa);const p=Math.round(d+ev+wa+ad);if(Math.abs(ad)>=1)bits.push('air '+(ad>0?'+':'')+Math.round(ad));const bits=[];if(Math.abs(ev*3)>=3)bits.push(Math.abs(ev*3).toFixed(0)+' ft '+(ev>0?'up':'down'));if(Math.abs(wa)>=1)bits.push('wind '+(wa>0?'+':'')+Math.round(wa));return`plays ${p}${bits.length?' · '+bits.join(' · '):' · level, calm'}`}
 {const _u=updHUD;updHUD=function(){const out=_u.apply(this,arguments);try{const e=$('sDist');if(e&&G.H&&G.ball){let pl=e.querySelector('.pl');if(!pl){pl=document.createElement('div');pl.className='pl';e.appendChild(pl)}const t=plText();if(pl.textContent!==t)pl.textContent=t}teeHBtn()}catch(x){}return out}}
 setInterval(()=>{try{teeHBtn()}catch(e){}},500);
 /* gimme slider: forward range changes to the setup's own button handler */
@@ -3092,6 +3092,17 @@ document.addEventListener('change',e=>{const r=e.target;if(!r)return;if(r.id==='
 {const _sr=startRound;startRound=function(cid){const c=condGet(cid);BALL.rho=condRho(c.t,c.a);const o=_sr.apply(this,arguments);if(G.round){G.round.cond=c}return o}}
 {const _rr=typeof resumeRound==='function'?resumeRound:null;if(_rr)resumeRound=function(sv){try{const c=(sv&&sv.r&&sv.r.cond)||{t:70,a:0};BALL.rho=condRho(c.t,c.a)}catch(e){}return _rr.apply(this,arguments)}}
 {const _lm=leaveToMenu;leaveToMenu=function(){BALL.rho=1.2;return _lm.apply(this,arguments)}}
+/* v4.3: air factor in recommend/plays-like */
+const _cfC={};function condCF(){const r=BALL.rho||1.2;if(Math.abs(r-1.2)<1e-4)return 1;const k=r.toFixed(4);if(_cfC[k])return _cfC[k];
+  const ci=Math.max(0,CLUBS.findIndex(c=>c.id==='7I'));const L=launchFrom(ci,{power:1,tempoQ:1,sx:0,sy:0,face:0,path:0,dLoft:0,ratio:3},S_FW);const c=rr=>{const o=BALL.rho;BALL.rho=rr;try{return flyBall(L,0,0,0,{x:0,y:0},{s:new Float32Array(60000)}).carry||1}finally{BALL.rho=o}};
+  const f=c(r)/c(1.2);return(_cfC[k]=Number.isFinite(f)&&f>.5?f:1)}
+{const _p=playsLike;playsLike=function(t){return _p.apply(this,arguments)/condCF()}}
+/* v4.3: short-game selector for wedges near the green: NORMAL / CHIP / PITCH / FLOP */
+const SG=[{n:'NORMAL',dl:0,sy:0},{n:'CHIP',dl:-6,sy:-.25},{n:'PITCH',dl:3,sy:.15},{n:'FLOP',dl:9,sy:.35}];G.sg=0;
+function sgOn(){const b=G.ball,C=CLUBS[G.club];return !!(b&&G.H&&C&&/W$/.test(C.id)&&!C.wood&&b.surf!==S_GREEN&&b.surf!==S_TEE&&(G.phase==='address'||G.phase==='swing')&&distYd(b,G.H.cup)<=90)}
+function sgBtn(){const a=$('acts');if(!a)return;let b=$('bSG');if(!b){b=document.createElement('button');b.className='ib';b.id='bSG';b.title='Short-game shot (chip / pitch / flop)';b.onclick=e=>{e.stopPropagation();G.sg=(G.sg+1)%SG.length;sgBtn()};a.appendChild(b)}const on=sgOn();b.style.display=on?'':'none';const t='SHOT: '+SG[G.sg].n;if(b.textContent!==t)b.textContent=t}
+{const _x=executeShot;executeShot=function(inp){try{if(inp&&!Number.isFinite(inp.ft)&&G.sg&&sgOn()){const S=SG[G.sg];inp.dLoft=(inp.dLoft||0)+S.dl;if(Number.isFinite(inp.sy))inp.sy=Math.max(-1,Math.min(1,inp.sy+S.sy));G.sgUsed=S.n}}catch(e){}return _x.apply(this,arguments)}}
+setInterval(()=>{try{sgBtn()}catch(e){}},500);
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
