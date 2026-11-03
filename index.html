@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.4';
+const VERSION='v4.5';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -1595,9 +1595,9 @@ function executeShot(inp){
   const lie=lieInfo();if(lie){inp.dLoft=(inp.dLoft||0)+lie.up*.9;inp.face=(inp.face||0)-lie.side*.7;inp.path=(inp.path||0)-lie.side*.35;if(Math.abs(lie.side)>2||lie.up<-2)inp.power*=1-Math.min(.05,(Math.abs(lie.side)+Math.max(0,-lie.up))*.005)}
   const L=launchFrom(ci,inp,surf);const S=new Float32Array(4000);const out={s:S,gz:(x,y)=>H.hAt(x,y)-h0};const F=flyBall(L,b.x,b.y,G.aim,G.wind,out);
   // tree collision + visual heights
-  const hL=H.hAt(F.lx,F.ly);let n=F.n,tree=null;const P=new Float32Array(9000);let m=0;
+  const hL=H.hAt(F.lx,F.ly);let n=F.n,tree=null,tp=null;const P=new Float32Array(9000);let m=0;
   for(let i=0;i<n;i++){const x=S[i*3],y=S[i*3+1],z=S[i*3+2];const zg=z+h0;
-    if(i>3&&x>H.X0&&x<H.X1&&y>H.Y0&&y<H.Y1){const t=H.treeHit(x,y,zg-H.hAt(x,y));if(t){tree={t,i,x,y,z:zg};break}}
+    if(i>3&&x>H.X0&&x<H.X1&&y>H.Y0&&y<H.Y1){const t=H.treeHit(x,y,zg-H.hAt(x,y));if(t&&!(tp&&tp.has(t))){if(typeof leafPass==='function'&&leafPass(t,x,y,zg-H.hAt(x,y))){(tp=tp||new Set).add(t)}else{tree={t,i,x,y,z:zg};break}}}
     P[m++]=x;P[m++]=y;P[m++]=zg}
   let res,flightN=m/3;const rec=new Float32Array(9000);
   if(tree){// drop under tree
@@ -3109,13 +3109,22 @@ function spK(k){const v=+store(k);return Number.isFinite(v)&&v>=.5&&v<=2?v:1}
 function spApply(){const d=spK('ts.drawK'),f=spK('ts.fadeK');SHAPES[1].f=SH0[1].f*d;SHAPES[1].p=SH0[1].p*d;SHAPES[2].f=SH0[2].f*f;SHAPES[2].p=SH0[2].p*f;G.ringDirty=true}
 spApply();
 function spUI(){const sh=$('shape');if(!sh||$('bSpin'))return;const b=document.createElement('button');b.id='bSpin';b.textContent='⚙';b.title='Draw / fade spin amount';
-  const P=document.createElement('div');P.id='spinP';P.style.cssText='display:none;position:absolute;bottom:100%;right:0;margin-bottom:6px;background:rgba(10,16,20,.92);border-radius:10px;padding:10px 12px;font-size:12px;color:#fff;min-width:220px;z-index:30';
+  const P=document.createElement('div');P.id='spinP';P.style.cssText='display:none;position:fixed;bottom:120px;right:270px;background:rgba(10,16,20,.92);border-radius:10px;padding:10px 12px;font-size:12px;color:#fff;min-width:220px;z-index:30';
   const row=(id,lab,k)=>`<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="width:40px">${lab}</span><input type=range id=${id} min=50 max=200 step=5 value=${Math.round(spK(k)*100)} style="flex:1"><b id=${id}V style="width:40px;text-align:right">${Math.round(spK(k)*100)}%</b></div>`;
   P.innerHTML='<b>Spin amount</b>'+row('spD','Draw','ts.drawK')+row('spF','Fade','ts.fadeK');
   b.onclick=e=>{e.stopPropagation();P.style.display=P.style.display==='none'?'':'none'};P.onclick=e=>e.stopPropagation();P.onpointerdown=e=>e.stopPropagation();
   P.oninput=e=>{const r=e.target;if(r.id!=='spD'&&r.id!=='spF')return;store(r.id==='spD'?'ts.drawK':'ts.fadeK',+r.value/100);$(r.id+'V').textContent=r.value+'%';spApply()};
   if(getComputedStyle(sh).position==='static')sh.style.position='relative';sh.appendChild(b);sh.appendChild(P)}
 setInterval(()=>{try{spUI()}catch(e){}},700);
+/* v4.5: leaves are not a wall — the ball can slip through the canopy (more likely near the edge); trunks always stop it */
+function leafPass(t,x,y,z){if(z<t.h*t.cb)return false;const r=clamp(Math.hypot(x-t.x,y-t.y)/(t.w*.5),0,1);return Math.random()<.18+.5*r}
+/* v4.5: address camera under/around trees — keep the eye out of the canopy so the shot is visible */
+{const _ca=camAddress;camAddress=function(){const c=_ca.apply(this,arguments);try{const H=G.H,b=G.ball;if(!c||!H||!b||!H.treeHit||G.view===1)return c;const bz=H.hAt(b.x,b.y);
+  const blocked=(e)=>{for(let k=1;k<=8;k++){const f=k/8,x=b.x+(e[0]-b.x)*f,y=b.y+(e[1]-b.y)*f,z=bz+(e[2]-bz)*f;const t=H.treeHit(x,y,z-H.hAt(x,y));if(t&&!(z-H.hAt(x,y)<t.h*t.cb&&Math.hypot(x-t.x,y-t.y)>.6))return t}return null};
+  let t=blocked(c.eye);if(!t)return c;
+  const ex=c.eye[0]-b.x,ey=c.eye[1]-b.y,d=Math.hypot(ex,ey)||1;
+  for(const [k,hz] of [[1,null],[.7,null],[.5,null],[.35,null]]){const cb=Math.max(.7,t.h*t.cb-.4);const nx=b.x+ex*k,ny=b.y+ey*k;const nz=H.hAt(nx,ny)+Math.min(c.eye[2]-bz,cb);const e=v3(nx,ny,nz);const t2=blocked(e);if(!t2){c.eye=e;c.at=v3(c.at[0],c.at[1],Math.min(c.at[2],bz+cb+1));return c}t=t2}
+  const nx=b.x+ex/d*1.6,ny=b.y+ey/d*1.6;c.eye=v3(nx,ny,H.hAt(nx,ny)+.75);c.at=v3(c.at[0],c.at[1],Math.min(c.at[2],bz+2));c.fov=Math.max(c.fov||.8,.95)}catch(e){}return c}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
