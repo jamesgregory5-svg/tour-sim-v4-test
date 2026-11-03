@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.1';
+const VERSION='v4.2';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -1973,7 +1973,7 @@ function showSetup(cid){const c=CID[cid];if(!c||!c.tees||!c.tees.length){showSel
    <div class="sec">Players · pass and play</div><div class="seg" id="np">${[1,2,3,4].map(k=>`<button data-i="${k}" class="${k===np?'sel':''}">${k===1?'Solo':k+' players'}</button>`).join('')}</div>
    <div class="sec">Time of day</div><div class="seg" id="tod">${Object.keys(TOD).map(k=>`<button data-k="${k}" class="${k===tod?'sel':''}">${TOD[k].n}</button>`).join('')}</div>
    <div class="sec">Difficulty</div><div class="seg" id="dif" style="flex-wrap:wrap">${DIFF.map((d,k)=>`<button style="flex:1 1 30%" data-i="${k}" class="${k===dif?'sel':''}">${d[0]}</button>`).join('')}</div><div class="gnote">Swing meter speed: ${DIFF[dif][1]}x</div>
-   <div class="sec">Gimmes</div><div class="seg" id="gm"><button data-i="0" class="${!gm?'sel':''}">Off</button><button data-i="${gm?Math.min(6,Math.max(3,gm)):3}" class="${gm?'sel':''}">On</button></div>${gm?`<div style="display:flex;align-items:center;gap:10px;margin-top:6px"><input type="range" id="gmR" min="3" max="6" step="1" value="${Math.min(6,Math.max(3,gm))}" style="flex:1"><b id="gmV">${Math.min(6,Math.max(3,gm))} ft</b></div>`:''}${gm?'<div class="gnote">Gimmes on, no records. Putts inside '+gm+' ft are conceded for +1 stroke.</div>':''}
+   ${typeof condUI==='function'?condUI(cid):''}<div class="sec">Gimmes</div><div class="seg" id="gm"><button data-i="0" class="${!gm?'sel':''}">Off</button><button data-i="${gm?Math.min(6,Math.max(3,gm)):3}" class="${gm?'sel':''}">On</button></div>${gm?`<div style="display:flex;align-items:center;gap:10px;margin-top:6px"><input type="range" id="gmR" min="3" max="6" step="0.1" value="${Math.min(6,Math.max(3,gm))}" style="flex:1"><b id="gmV">${(Math.round(Math.min(6,Math.max(3,gm))*10)/10).toFixed(1)} ft</b></div>`:''}${gm?'<div class="gnote">Gimmes on, no records. Putts inside '+gm+' ft are conceded for +1 stroke.</div>':''}
    <div class="sec">Crowd &amp; ambience</div><div class="seg" id="crw">${['Off','Low','Medium','High'].map((n,i)=>`<button data-i="${i}" class="${i===crw?'sel':''}">${n}</button>`).join('')}</div>
    <div class="pls">${Array.from({length:np},(_,k)=>`<label><span>${k===0?'You (profile owner)':'Player '+(k+1)}</span><input data-k="${k}" maxlength="16" value="${esc(names[k])}"></label>`).join('')}</div>
    <div class="scr">${cardHTML(c,tee,0,18,null,null)}</div>
@@ -3070,7 +3070,7 @@ function plText(){const H=G.H,b=G.ball;if(!H||!b)return'';const t=(typeof curTar
 {const _u=updHUD;updHUD=function(){const out=_u.apply(this,arguments);try{const e=$('sDist');if(e&&G.H&&G.ball){let pl=e.querySelector('.pl');if(!pl){pl=document.createElement('div');pl.className='pl';e.appendChild(pl)}const t=plText();if(pl.textContent!==t)pl.textContent=t}teeHBtn()}catch(x){}return out}}
 setInterval(()=>{try{teeHBtn()}catch(e){}},500);
 /* gimme slider: forward range changes to the setup's own button handler */
-document.addEventListener('input',e=>{const r=e.target;if(r&&r.id==='gmR'){const v=+r.value;const l=$('gmV');if(l)l.textContent=v+' ft'}});
+document.addEventListener('input',e=>{const r=e.target;if(r&&r.id==='gmR'){const v=+r.value;const l=$('gmV');if(l)l.textContent=v.toFixed(1)+' ft'}});
 document.addEventListener('change',e=>{const r=e.target;if(r&&r.id==='gmR'){const g=$('gm');if(!g)return;const b=document.createElement('button');b.dataset.i=r.value;b.style.display='none';g.appendChild(b);b.click()}});
 function crTrailCtx(){const r=G.round;return !!((r&&r.car)||G.crCh)}/* v4.1: career putts follow the career trail too */
 /* v4.1: compact gear chip (click for details) + keep the left button column clear of the career stack */
@@ -3082,6 +3082,16 @@ function crStackGuard(){const a=$('acts');if(!a)return;const lv=$('tnLive'),ch=$
   const ar=a.getBoundingClientRect();let bot=0,right=0;for(const e of[lv,ch])if(vis(e)){const r=e.getBoundingClientRect();bot=Math.max(bot,r.bottom);right=Math.max(right,r.right)}
   const cur=a.style.left;a.style.left='';const ar0=a.getBoundingClientRect();if(bot+6>ar0.top){a.style.left=(Math.round(right)+10)+'px'}else if(cur)a.style.left=''}
 setInterval(()=>{try{crStackGuard()}catch(e){}},400);
+/* v4.2: temperature + per-course altitude -> air density (carry changes). Baseline 70F, sea level = old rho 1.2 */
+const TEMPS=[40,55,70,85,100],ALTS=[0,1000,2500,5280,7500];
+function condGet(cid){const t=+store('ts.tempF');const m=store('ts.altc')||{};return{t:TEMPS.includes(t)?t:70,a:ALTS.includes(+m[cid])?+m[cid]:0}}
+function condRho(t,a){const K=(t-32)*5/9+273.15;return 1.2*(294.26/K)*Math.exp(-a*.3048/8434)}
+function condUI(cid){const c=condGet(cid);const o=(L,v,u)=>L.map(x=>`<option value="${x}"${x===v?' selected':''}>${x===0&&u===' ft'?'Sea level':x.toLocaleString()+u}</option>`).join('');
+  return`<div class="sec">Conditions</div><div style="display:flex;gap:10px;align-items:center;margin-bottom:6px"><label>Temp <select id="cdT">${o(TEMPS,c.t,'°F')}</select></label><label>Altitude (this course) <select id="cdA" data-c="${cid}">${o(ALTS,c.a,' ft')}</select></label><span style="opacity:.65;font-size:12px">Warm or high air = more carry</span></div>`}
+document.addEventListener('change',e=>{const r=e.target;if(!r)return;if(r.id==='cdT')store('ts.tempF',+r.value);if(r.id==='cdA'){const m=store('ts.altc')||{};m[r.dataset.c]=+r.value;store('ts.altc',m)}});
+{const _sr=startRound;startRound=function(cid){const c=condGet(cid);BALL.rho=condRho(c.t,c.a);const o=_sr.apply(this,arguments);if(G.round){G.round.cond=c}return o}}
+{const _rr=typeof resumeRound==='function'?resumeRound:null;if(_rr)resumeRound=function(sv){try{const c=(sv&&sv.r&&sv.r.cond)||{t:70,a:0};BALL.rho=condRho(c.t,c.a)}catch(e){}return _rr.apply(this,arguments)}}
+{const _lm=leaveToMenu;leaveToMenu=function(){BALL.rho=1.2;return _lm.apply(this,arguments)}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}

@@ -1,3 +1,3 @@
 # Tour Sim v4 test
 
-Current: v4.1 (tee height, gimme slider, plays-like + wind, career putt-trail fix, smooth lip-outs, desktop left-stack overlap fix).
+Current: v4.2 (temperature + per-course altitude, 0.1 ft gimme slider). v4.1: tee height, plays-like + wind, career putt trail, smooth lip-outs, left-stack fix.
