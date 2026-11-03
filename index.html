@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v3.12';
+const VERSION='v4.1';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -363,7 +363,10 @@ function groundRoll(F,surfAt,slopeAt,cup,rec){
             if(ns<vpin||lucky){put(cup.x,cup.y,0);res.kind='sunk';res.pin=1;x=cup.x;y=cup.y;break}
             const after=ns*(.25+.2*e);const a=Math.PI-side*(.5+1.6*e),c=Math.cos(a),sn=Math.sin(a),k=after/ns;const qx=(vx*c-vy*sn)*k,qy=(vx*sn+vy*c)*k;vx=qx;vy=qy;lip=1;res.lip='pin'}
           else if(ns<vcap*1.9+.5&&e>.3){// medium pace on the edge: lips out / horseshoes around the rim
-            const a=side*(.7+1.4*(1-e)*(1-e)+.35),c=Math.cos(a),sn=Math.sin(a),k=.55;const qx=(vx*c-vy*sn)*k,qy=(vx*sn+vy*c)*k;vx=qx;vy=qy;lip=1;res.lip='lip'}
+            const a=side*(.7+1.4*(1-e)*(1-e)+.35),k=.55;/* v4.1: ride smoothly around the rim instead of turning in one step */
+            const px=cup.x+cx,py=cup.y+cy;const d0=Math.hypot(px-x,py-y),st=Math.max(1,Math.ceil(d0/(ns*dt)));for(let q=1;q<=st;q++)put(x+(px-x)*q/st,y+(py-y)*q/st,0);
+            const th0=Math.atan2(cy,cx),N=Math.max(10,Math.ceil(Math.abs(a)/.05));let ex=px,ey=py;for(let q=1;q<=N;q++){const t=q/N,sm=t*t*(3-2*t);const r=cd+(.062-cd)*sm;const th=th0+a*t;ex=cup.x+Math.cos(th)*r;ey=cup.y+Math.sin(th)*r;put(ex,ey,-.008*Math.sin(t*Math.PI))}
+            const c=Math.cos(a),sn=Math.sin(a);const qx=(vx*c-vy*sn)*k,qy=(vx*sn+vy*c)*k;vx=qx;vy=qy;lip=1;res.lip='lip';x=ex;y=ey;continue}
           else{// too fast: skips over the hole / catches the far rim and keeps rolling
             const a=side*.12*(1-e)+side*.05,c=Math.cos(a),sn=Math.sin(a),k=ns>4?.9:.8;const qx=(vx*c-vy*sn)*k,qy=(vx*sn+vy*c)*k;vx=qx;vy=qy;lip=1;res.lip='over';
             for(let q=1;q<=4;q++)put(x+vx*dt*q*.25,y+vy*dt*q*.25,.012*Math.sin(q/4*Math.PI))}}
@@ -1736,9 +1739,9 @@ function frame(now){requestAnimationFrame(frame);if(G.cartOn)return;const _t0=pe
   if(G.phase==='address'||G.phase==='swing'){if(G.ringDirty)calcRing();if(G.ring){const r=G.ring;S.ring=[r.x,r.y,r.r,.9];S.aim=[G.ball.x,G.ball.y,r.x,r.y]}}
   if(G.phase==='putt'){S.putt=1;const ft=(G.sw&&G.sw.ft)||0;const d=(ft>0?ft:distYd(G.ball,G.H.cup)*3)/3;S.aim=[G.ball.x,G.ball.y,G.ball.x+Math.cos(G.aim)*d,G.ball.y+Math.sin(G.aim)*d]}
   if(G.phase==='flight'&&G.anim.put)S.putt=.5;
-  if((G.phase==='flight'||G.phase==='replay')&&G.anim&&!G.anim.put&&typeof custTrailOn==='function'&&!custTrailOn()){G.R.tracerN=0}else if((G.phase==='flight'||G.phase==='replay')&&G.anim&&(G.tracerOn||G.anim.put)){// trail = the ball's real sampled path (flight, then roll / putt break), head pinned to the interpolated ball position
+  if((G.phase==='flight'||G.phase==='replay')&&G.anim&&(!G.anim.put||(typeof crTrailCtx==='function'&&crTrailCtx()))&&typeof custTrailOn==='function'&&!custTrailOn()){G.R.tracerN=0}else if((G.phase==='flight'||G.phase==='replay')&&G.anim&&(G.tracerOn||G.anim.put)){// trail = the ball's real sampled path (flight, then roll / putt break), head pinned to the interpolated ball position
     const a=G.anim;const k=Math.min(a.n,2999,Math.floor(a.t*60)+2);if(k>=2){const tmp=a.P.subarray(0,k*3).slice();tmp[(k-1)*3]=bp[0];tmp[(k-1)*3+1]=bp[1];tmp[(k-1)*3+2]=bp[2];{const L=(!a.put&&typeof custTrailLen==='function')?custTrailLen():1e9;const s0=Math.max(0,k-L);if(s0>0){const t2=tmp.subarray(s0*3);glTracer(G.R,t2,k-s0,G.cam.eye,1,Math.max(0,(a.flightN||k)-s0),G.H)}else glTracer(G.R,tmp,k,G.cam.eye,1,a.put?0:(a.flightN||k),G.H)}}}
-  S.tracerHead=1;S.ballBoost=1;if(typeof custTrailRGB==='function'&&G.anim&&!G.anim.put)S.tracerCol=custTrailRGB();
+  S.tracerHead=1;S.ballBoost=1;if(typeof custTrailRGB==='function'&&G.anim&&(!G.anim.put||(typeof crTrailCtx==='function'&&crTrailCtx())))S.tracerCol=custTrailRGB();
   resize();glDraw(G.R,G.cam,S);
   G.VP=G.R.lastVP;
   if(G.labels)drawLabels();
@@ -1970,7 +1973,7 @@ function showSetup(cid){const c=CID[cid];if(!c||!c.tees||!c.tees.length){showSel
    <div class="sec">Players · pass and play</div><div class="seg" id="np">${[1,2,3,4].map(k=>`<button data-i="${k}" class="${k===np?'sel':''}">${k===1?'Solo':k+' players'}</button>`).join('')}</div>
    <div class="sec">Time of day</div><div class="seg" id="tod">${Object.keys(TOD).map(k=>`<button data-k="${k}" class="${k===tod?'sel':''}">${TOD[k].n}</button>`).join('')}</div>
    <div class="sec">Difficulty</div><div class="seg" id="dif" style="flex-wrap:wrap">${DIFF.map((d,k)=>`<button style="flex:1 1 30%" data-i="${k}" class="${k===dif?'sel':''}">${d[0]}</button>`).join('')}</div><div class="gnote">Swing meter speed: ${DIFF[dif][1]}x</div>
-   <div class="sec">Gimmes</div><div class="seg" id="gm">${[0,2,3].map(k=>`<button data-i="${k}" class="${k===gm?'sel':''}">${k?k+' ft':'Off'}</button>`).join('')}</div>${gm?'<div class="gnote">Gimmes on, no records. Putts inside '+gm+' ft are conceded for +1 stroke.</div>':''}
+   <div class="sec">Gimmes</div><div class="seg" id="gm"><button data-i="0" class="${!gm?'sel':''}">Off</button><button data-i="${gm?Math.min(6,Math.max(3,gm)):3}" class="${gm?'sel':''}">On</button></div>${gm?`<div style="display:flex;align-items:center;gap:10px;margin-top:6px"><input type="range" id="gmR" min="3" max="6" step="1" value="${Math.min(6,Math.max(3,gm))}" style="flex:1"><b id="gmV">${Math.min(6,Math.max(3,gm))} ft</b></div>`:''}${gm?'<div class="gnote">Gimmes on, no records. Putts inside '+gm+' ft are conceded for +1 stroke.</div>':''}
    <div class="sec">Crowd &amp; ambience</div><div class="seg" id="crw">${['Off','Low','Medium','High'].map((n,i)=>`<button data-i="${i}" class="${i===crw?'sel':''}">${n}</button>`).join('')}</div>
    <div class="pls">${Array.from({length:np},(_,k)=>`<label><span>${k===0?'You (profile owner)':'Player '+(k+1)}</span><input data-k="${k}" maxlength="16" value="${esc(names[k])}"></label>`).join('')}</div>
    <div class="scr">${cardHTML(c,tee,0,18,null,null)}</div>
@@ -2932,8 +2935,8 @@ function showHofScreen(h){const C=crLoad();const n=(C.hof||[]).length;
 /* small equipped-gear chip under the live leaderboard during career rounds */
 function crGearChip(){let el=$('crGearI');const r=G.round;const lv=$('tnLive');const on=r&&r.car&&G.mode==='round'&&lv&&lv.style.display!=='none';if(!on){if(el)el.style.display='none';return}
   const C=crLoad();if(!C)return;crGear(C);const z=crStats(C,G.club);const sl=crSlotFor(G.club);const it=crEq(C,sl),bl=crEq(C,'b');
-  if(!el){el=document.createElement('div');el.id='crGearI';el.style.cssText='position:fixed;left:10px;z-index:12;width:196px;background:rgba(10,16,20,.72);border-radius:10px;color:#e8eef2;font:600 11px/1.35 system-ui,sans-serif;padding:5px 9px;pointer-events:none;box-sizing:border-box';document.body.appendChild(el)}
-  el.style.top=(lv.offsetTop+lv.offsetHeight+6)+'px';el.style.width=lv.style.width||'196px';el.style.display='block';const txt=`<b>${DIFF[C.lvl][0]}</b> · ${it?esc(it.n.replace(/ (Driver|Irons|Wedges|Putter)$/,'')):'Stock'}${bl?' · '+esc(bl.n.replace(/ Ball$/,'')):''}<br><span style="opacity:.75">ACC +${z.acc} · PWR +${z.pow} · CON +${z.con}</span>${typeof crSpon==='function'&&crSpon(C)?`<br><span style="color:#ffd24a">${esc(crSpon(C).n)}: ${esc(crSpon(C).goal)}</span>`:''}${typeof crCadLine==='function'?crCadLine(C):''}${typeof crFormLabel==='function'&&crFormLabel(C)?`<br><span style="color:${C.form>0?'#ff9a4a':'#8fd0ff'}">${esc(crFormLabel(C))}</span>`:''}${typeof crTrnLabel==='function'&&crTrnLabel(C)?`<br><span style="color:#7ab8ff">${esc(crTrnLabel(C))}</span>`:''}`;if(el.innerHTML!==txt)el.innerHTML=txt}
+  if(!el){el=document.createElement('div');el.id='crGearI';el.style.cssText='position:fixed;left:10px;z-index:12;width:196px;background:rgba(10,16,20,.72);border-radius:10px;color:#e8eef2;font:600 11px/1.35 system-ui,sans-serif;padding:5px 9px;pointer-events:auto;cursor:pointer;box-sizing:border-box';el.title='Click to show or hide gear details';el.addEventListener('click',()=>{store('ts.gchip',store('ts.gchip')?0:1);el.innerHTML=''});document.body.appendChild(el)}
+  el.style.top=(lv.offsetTop+lv.offsetHeight+6)+'px';el.style.width=lv.style.width||'196px';el.style.display='block';const txt=`<b>${DIFF[C.lvl][0]}</b> · ${it?esc(it.n.replace(/ (Driver|Irons|Wedges|Putter)$/,'')):'Stock'}${bl?' · '+esc(bl.n.replace(/ Ball$/,'')):''}<br><span style="opacity:.75">ACC +${z.acc} · PWR +${z.pow} · CON +${z.con}</span>${typeof crSpon==='function'&&crSpon(C)?`<br><span style="color:#ffd24a">${esc(crSpon(C).n)}: ${esc(crSpon(C).goal)}</span>`:''}${typeof crCadLine==='function'?crCadLine(C):''}${typeof crFormLabel==='function'&&crFormLabel(C)?`<br><span style="color:${C.form>0?'#ff9a4a':'#8fd0ff'}">${esc(crFormLabel(C))}</span>`:''}${typeof crTrnLabel==='function'&&crTrnLabel(C)?`<br><span style="color:#7ab8ff">${esc(crTrnLabel(C))}</span>`:''}`;const T2=(!store('ts.gchip')&&typeof crChipCompact==='function')?crChipCompact(C,z,it,bl):txt;if(el.innerHTML!==T2)el.innerHTML=T2}
 setInterval(()=>{try{crGearChip()}catch(e){}},700);
 
 /* ================= v3.6: fix pass: trophy-shelf button on every tournament-setup redraw; no duplicate resume for career rounds ================= */
@@ -3050,6 +3053,35 @@ function showCaddie(){const C=crLoad();if(!C){showCareer();return}const cur=crCa
   <div style="display:grid;gap:8px;margin-top:10px">${CADDIES.map(c=>{const o=own.includes(c.id),on=cur===c;return`<div style="background:#121a20;border-radius:12px;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;${on?'outline:2px solid #3fe0b0':''}"><div><div style="font-weight:800">${esc(c.n)}</div><div style="font-size:13px;opacity:.8">${esc(c.txt)}</div></div>${on?'<b style="color:#3fe0b0;white-space:nowrap">ON THE BAG</b>':`<button class="btn${o?' alt':''}" data-cd="${c.id}" style="padding:6px 12px;margin:0;width:auto;white-space:nowrap;${!o&&C.cash<c.p?'opacity:.45':''}">${o?'Use':crMoney(c.p)}</button>`}</div>`}).join('')}</div><div id="cdMsg" class="gnote" style="min-height:18px"></div></div>`);
   $('cdB').onclick=showCareer;s.querySelector('#cadScr').addEventListener('click',e=>{const b=e.target.closest('[data-cd]');if(!b)return;if(crCadHire(b.dataset.cd))showCaddie();else $('cdMsg').textContent='Not enough prize money yet.'})}
 {const _sc=showCareer;showCareer=function(){const out=_sc.apply(this,arguments);try{const p=$('crShop')||$('crPlay');const C=crLoad();if(p&&C&&!$('crCad')){const c=crCad(C);const b=document.createElement('button');b.className='btn alt';b.id='crCad';b.style.marginTop='8px';b.innerHTML=c?`Caddie: ${esc(c.n)}<small>Green reads${c.plays?', plays-like yardage':''} in rounds · tap to change</small>`:'Hire a caddie<small>Green-reading hints, yardage advice, a little accuracy help</small>';b.onclick=showCaddie;p.after(b)}}catch(e){console.warn(e)}return out}}
+
+/* ================= v4.1: tee height, gimme slider hookup, plays-like always visible (wind + elevation) ================= */
+const TEE_H=[{n:'LOW',dl:-1,sy:-.12},{n:'MID',dl:0,sy:0},{n:'HIGH',dl:.6,sy:.12}];
+function teeHI(){const v=store('ts.teeh');return v===null||v===undefined||!TEE_H[+v]?1:+v}
+function teeHOn(){const b=G.ball;return !!(b&&b.surf===S_TEE&&CLUBS[G.club]&&CLUBS[G.club].wood&&(G.phase==='address'||G.phase==='swing'))}
+function teeHSet(i){store('ts.teeh',((i%3)+3)%3);teeHBtn()}
+function teeHBtn(){let b=$('bTee');const a=$('acts');if(!a)return;if(!b){b=document.createElement('button');b.className='ib';b.id='bTee';b.title='Tee height (T)';b.onclick=e=>{e.stopPropagation();teeHSet(teeHI()+1)};a.appendChild(b)}const on=teeHOn();b.style.display=on?'':'none';const t='TEE: '+TEE_H[teeHI()].n;if(b.textContent!==t)b.textContent=t}
+{const _x=executeShot;executeShot=function(inp){try{if(inp&&!Number.isFinite(inp.ft)&&G.ball&&G.ball.surf===S_TEE&&CLUBS[G.club]&&CLUBS[G.club].wood&&G.club!==PUTTER){const T=TEE_H[teeHI()];inp.dLoft=(inp.dLoft||0)+T.dl;if(Number.isFinite(inp.sy))inp.sy=Math.max(-1,Math.min(1,inp.sy+T.sy));G.teeUsed=T.n}}catch(e){}return _x.apply(this,arguments)}}
+addEventListener('keydown',e=>{if(e.code==='KeyT'&&!e.repeat&&teeHOn()&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))){teeHSet(teeHI()+1)}});
+/* plays-like: elevation + wind, always shown (greens: slope-adjusted putt length) */
+function plWindAdj(d){const w=G.wind||{x:0,y:0};const a=G.aim||0;const head=-((w.x||0)*Math.cos(a)+(w.y||0)*Math.sin(a))*2.237;return head>0?d*.01*head:d*.005*head}
+function plText(){const H=G.H,b=G.ball;if(!H||!b)return'';const t=(typeof curTarget==='function'&&curTarget())||H.cup;const ci=G.club;const onG=b.surf===S_GREEN||ci===PUTTER;
+  if(onG){const ft=distYd(b,H.cup)*3;const up=(H.hAt(H.cup.x,H.cup.y)-H.hAt(b.x,b.y))*36;const p=Math.max(0,ft+up);return`plays ${Math.round(p)} ft${Math.abs(up)>=1?' · '+Math.abs(up).toFixed(0)+' in '+(up>0?'up':'down'):' · flat'}`}
+  const d=distYd(b,t);const ev=elevTo(t);const wa=plWindAdj(d);const p=Math.round(d+ev+wa);const bits=[];if(Math.abs(ev*3)>=3)bits.push(Math.abs(ev*3).toFixed(0)+' ft '+(ev>0?'up':'down'));if(Math.abs(wa)>=1)bits.push('wind '+(wa>0?'+':'')+Math.round(wa));return`plays ${p}${bits.length?' · '+bits.join(' · '):' · level, calm'}`}
+{const _u=updHUD;updHUD=function(){const out=_u.apply(this,arguments);try{const e=$('sDist');if(e&&G.H&&G.ball){let pl=e.querySelector('.pl');if(!pl){pl=document.createElement('div');pl.className='pl';e.appendChild(pl)}const t=plText();if(pl.textContent!==t)pl.textContent=t}teeHBtn()}catch(x){}return out}}
+setInterval(()=>{try{teeHBtn()}catch(e){}},500);
+/* gimme slider: forward range changes to the setup's own button handler */
+document.addEventListener('input',e=>{const r=e.target;if(r&&r.id==='gmR'){const v=+r.value;const l=$('gmV');if(l)l.textContent=v+' ft'}});
+document.addEventListener('change',e=>{const r=e.target;if(r&&r.id==='gmR'){const g=$('gm');if(!g)return;const b=document.createElement('button');b.dataset.i=r.value;b.style.display='none';g.appendChild(b);b.click()}});
+function crTrailCtx(){const r=G.round;return !!((r&&r.car)||G.crCh)}/* v4.1: career putts follow the career trail too */
+/* v4.1: compact gear chip (click for details) + keep the left button column clear of the career stack */
+function crChipCompact(C,z,it,bl){const ic=[];if(typeof crSpon==='function'&&crSpon(C))ic.push('💰');if(typeof crTrn==='function'&&crTrn(C))ic.push('🏋');const f=typeof crForm==='function'?crForm(C):0;if(f)ic.push(f>0?'🔥':'❄');
+  const cad=typeof crCadLine==='function'?crCadLine(C):'';const cadHint=cad&&/breaks|straight|plays like/.test(cad)?cad:'';
+  return`<b>${DIFF[C.lvl][0]}</b> · ACC ${z.acc>=0?'+':''}${z.acc} · PWR +${z.pow} · CON ${z.con>=0?'+':''}${z.con} ${ic.join('')} <span style="opacity:.6">▸</span>${cadHint}`}
+function crStackGuard(){const a=$('acts');if(!a)return;const lv=$('tnLive'),ch=$('crGearI');const vis=e=>e&&e.style.display!=='none'&&e.offsetParent!==null;
+  if(!(vis(lv)||vis(ch))||!(G.round&&G.round.car)){if(a.style.left)a.style.left='';return}
+  const ar=a.getBoundingClientRect();let bot=0,right=0;for(const e of[lv,ch])if(vis(e)){const r=e.getBoundingClientRect();bot=Math.max(bot,r.bottom);right=Math.max(right,r.right)}
+  const cur=a.style.left;a.style.left='';const ar0=a.getBoundingClientRect();if(bot+6>ar0.top){a.style.left=(Math.round(right)+10)+'px'}else if(cur)a.style.left=''}
+setInterval(()=>{try{crStackGuard()}catch(e){}},400);
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
