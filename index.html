@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.14';
+const VERSION='v4.15';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3367,6 +3367,38 @@ function showAbout(){show('scSetup',`<div class="pn"><div class="hdr"><h2>About 
  <p>Tour Sim is <b>not affiliated with, endorsed by or sponsored by</b> any golf club, course, tour, league or brand. Course names are used only to describe the real places the layouts are based on. No real players, characters or logos are used.</p>
  <p>All sound is synthesized in the browser; no recordings are used.</p></div>`);$('abx').onclick=showMenu}
 {const _sm=showMenu;showMenu=function(){const r=_sm.apply(this,arguments);try{const h=$('mHow');if(h&&!$('mAbout')){const b=document.createElement('button');b.className='btn alt c';b.id='mAbout';b.textContent='About';b.onclick=showAbout;h.after(b)}}catch(e){}return r}}
+
+/* v4.15: career save slots (3) + player build. 'ts.career' stays the ACTIVE career (all career code reads it); slots live in ts.career.s0..s2, active index in ts.car.act */
+const CR_BUILDS={bal:{n:'All-rounder',d:'No strengths, no weaknesses.'},pow:{n:'Power',d:'+5% distance, but swing errors bend the ball 20% more.'},acc:{n:'Accuracy',d:'Face and path errors 25% smaller, but 3% shorter.'},con:{n:'Consistency',d:'Mis-hits (early/late strikes) 30% smaller.'}};
+function crSlotKey(i){return 'ts.career.s'+i}
+function crAct(){const v=store('ts.car.act');return v===null||v===undefined?0:clamp(+v|0,0,2)}
+function crSlot(i){const v=store(crSlotKey(i));return v&&v.C&&v.C.v===1?v:null}
+(function crMigrate(){try{if(store('ts.car.mig'))return;const C=store('ts.career');if(C&&C.v===1&&!crSlot(0)){store(crSlotKey(0),{C,rnd:null});store('ts.car.act',0)}store('ts.car.mig',1)}catch(e){}})();
+{const _cs=crSave;crSave=function(C){_cs(C);try{if(C){const s=crSlot(crAct())||{};store(crSlotKey(crAct()),{C,rnd:s.rnd||null})}}catch(e){}}}
+function crStash(){const C=crLoad();if(!C)return;const sv=store('ts.round');store(crSlotKey(crAct()),{C,rnd:sv&&sv.r&&sv.r.car?sv:null})}
+function crUse(i){crStash();const s=crSlot(i);const sv=store('ts.round');if(sv&&sv.r&&sv.r.car)store('ts.round',null);store('ts.car.act',i);store('ts.career',s?s.C:null);if(s&&s.rnd)store('ts.round',s.rnd)}
+function crDelSlot(i){store(crSlotKey(i),null);if(i===crAct()){store('ts.career',null);const sv=store('ts.round');if(sv&&sv.r&&sv.r.car)store('ts.round',null)}}
+function crBuild(){const C=crLoad();return C&&CR_BUILDS[C.bld]?C.bld:'bal'}
+function showSlots(){crStash();const row=i=>{const s=crSlot(i),C=s&&s.C;return `<div style="background:#121a20;border-radius:12px;padding:10px;margin:8px 0;display:flex;gap:10px;align-items:center${i===crAct()&&C?';outline:2px solid #3fe0b0':''}"><div style="flex:1"><div style="font-weight:800">Slot ${i+1}${C?' · '+esc(C.name):''}</div><div style="opacity:.75;font-size:13px">${C?`${CR_BUILDS[C.bld]?CR_BUILDS[C.bld].n:'All-rounder'} · ${CR_TIERS[C.tier].n} · season ${C.season} · ${crMoney(C.earn)} · ${C.wins} wins`:'Empty'}</div></div>
+   <button class="btn" style="width:auto;margin:0;padding:8px 14px" data-p="${i}">${C?'Play':'New'}</button>${C?`<button class="btn alt" style="width:auto;margin:0;padding:8px 12px" data-d="${i}">Delete</button>`:''}</div>`};
+  const full=[0,1,2].every(i=>crSlot(i));
+  const s=show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="slB">‹</button><h2>Career saves</h2></div><div class="gnote">Up to 3 careers. ${full?'All slots are full: delete one to start a new career.':'Pick a career or start a new one in an empty slot.'}</div>${[0,1,2].map(row).join('')}</div>`);
+  $('slB').onclick=showMenu;s.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const i=+b.dataset.p;crUse(i);showCareer()});
+  s.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const i=+b.dataset.d,C=crSlot(i).C;if(confirm(`Delete career slot ${i+1} (${C.name})? This cannot be undone. Trophies stay on the shelf.`)){crDelSlot(i);showSlots()}})}
+/* build picker inside New career (re-injected after every redraw of that screen); crNew stamps the chosen build */
+let CR_NEWBLD='bal';
+{const _cn=crNew;crNew=function(){const C=_cn.apply(this,arguments);C.bld=CR_NEWBLD;return C}}
+function crBldInject(){const go=$('crGo');if(!go||$('crBld'))return;const box=document.createElement('div');box.id='crBldBox';
+  const draw=()=>{box.innerHTML=`<div class="sec">Player build</div><div class="seg" id="crBld" style="flex-wrap:wrap">${Object.keys(CR_BUILDS).map(k=>`<button style="flex:1 1 22%" data-v="${k}" class="${k===CR_NEWBLD?'sel':''}">${CR_BUILDS[k].n}</button>`).join('')}</div><div class="gnote" style="margin-top:6px">${CR_BUILDS[CR_NEWBLD].d}</div>`;
+    box.querySelector('#crBld').onclick=e=>{const b=e.target.closest('button');if(b){CR_NEWBLD=b.dataset.v;draw()}}};draw();go.before(box);setTimeout(()=>{const B=$('crB');if(B)B.onclick=showSlots},0)}
+{const _show=show;show=function(id){const s=_show.apply(this,arguments);try{if(id==='scSetup'&&$('crGo')&&$('crNm'))crBldInject()}catch(e){}return s}}
+/* build effects in career rounds (not putts) */
+{const _ex=executeShot;executeShot=function(inp){try{if(G.round&&G.round.car&&G.club!==PUTTER&&inp){const b=crBuild();inp=Object.assign({},inp);
+  if(b==='pow'){inp.power*=1.05;if(inp.face)inp.face*=1.2;if(inp.path)inp.path*=1.2}else if(b==='acc'){inp.power*=.97;if(inp.face)inp.face*=.75;if(inp.path)inp.path*=.75}else if(b==='con'){if(inp.err)inp.err*=.7}}}catch(e){}return _ex.call(this,inp)}}
+/* menu + career screen entry points go through the slot picker */
+{const _sm=showMenu;showMenu=function(){const r=_sm.apply(this,arguments);try{const b=$('mCareer');if(b){b.onclick=showSlots;const n=[0,1,2].filter(i=>crSlot(i)).length;if(n>1)b.querySelector('small')&&(b.querySelector('small').textContent+=` · ${n} saves`)}}catch(e){}return r}}
+{const _sc=showCareer;showCareer=function(){const r=_sc.apply(this,arguments);try{const C=crLoad();const B=$('crB');if(C&&B&&$('crScr')){B.onclick=showSlots;const d=$('crDel');if(d){d.textContent='Delete this career (slot '+(crAct()+1)+')';d.onclick=()=>{if(confirm('Delete this career? This cannot be undone. Trophies stay on the shelf.')){crDelSlot(crAct());showSlots()}}}
+  const h=document.querySelector('#crScr .gnote');if(h)h.innerHTML+=` · build <b>${CR_BUILDS[crBuild()].n}</b>`}}catch(e){}return r}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
