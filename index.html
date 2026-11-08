@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.13';
+const VERSION='v4.14';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3352,6 +3352,21 @@ function loop(now){requestAnimationFrame(loop);try{const dt=Math.min(.05,(now-la
   R.render(scene,cam)}catch(e){window.WLerr=String(e&&e.stack||e).slice(0,300)}}
 requestAnimationFrame(loop);window.WLtest=()=>{const b=G.ball,a=G.aim,H=G.H;for(const o of list){if(o.k==='gull'){o.cx=b.x+Math.cos(a)*22;o.cy=b.y+Math.sin(a)*22;o.r=6;o.h=5}if(o.k==='sq'){o.x=b.x+Math.cos(a)*6+Math.sin(a)*1.5;o.y=b.y+Math.sin(a)*6-Math.cos(a)*1.5}if(o.k==='ga'){o.x=b.x+Math.cos(a)*12-Math.sin(a)*3;o.y=b.y+Math.sin(a)*12+Math.cos(a)*3}}};window.WLdbg=()=>({tri:R&&R.info.render.triangles,calls:R&&R.info.render.calls,vp:Array.from(G.R.lastVP).map(v=>+v.toFixed(3)),p:list[0]&&project(...list[0].g.position.toArray()),size:[cv.width,cv.height,cv.style.display],err:window.WLerr});window.WL=()=>list.map(a=>a.k+':'+a.g.position.toArray().map(v=>v.toFixed(0)).join(','));
 })();
+
+/* v4.14: Pick up + Skip hole (regular solo rounds only, never career), About screen */
+function puAllowed(){const r=G.round;return !!(G.mode==='round'&&r&&!r.car&&!G.crCh&&!(typeof isMP==='function'&&isMP())&&!(G.endless&&G.endless.on)&&(G.phase==='address'||G.phase==='putt')&&!G.replay)}
+pickUp=function(){const r=G.round,H=G.H;if(!r||!H)return;const sc=Math.max(G.strokes+1,H.par+3);G.strokes=sc;r.sc[r.i]=sc;r.pt[r.i]=G.putts||0;r.fir[r.i]=G.hs.fir;r.gir[r.i]=false;r.dr[r.i]=G.hs.dr;r.pen[r.i]=G.pen;(r.pu=r.pu||[])[r.i]=1;
+  G.phase='holed';G.ballOn=false;toast('Picked up','Hole scored as '+sc+' (pick-up max, par +'+(sc-H.par)+')',2400);store('ts.round',{r,hs:null});updHUD();$('next').textContent=r.i>=r.n-1?'Finish round ▸':'Next hole ▸';setTimeout(()=>{$('next').style.display='block'},700)};
+function skipHole(){const r=G.round,H=G.H;if(!r||!H)return;if(!confirm('Skip this hole? It is recorded as a pick-up (par +3).'))return;const sc=Math.max(G.strokes+1,H.par+3);r.sc[r.i]=sc;r.pt[r.i]=G.putts||0;r.fir[r.i]=null;r.gir[r.i]=false;r.dr[r.i]=0;r.pen[r.i]=G.pen;(r.pu=r.pu||[])[r.i]=1;G.phase='holed';G.ballOn=false;nextHole()}
+(function(){const host=$('acts');if(!host)return;const mk=(id,t,ti,fn)=>{const b=document.createElement('button');b.className='ib';b.id=id;b.textContent=t;b.title=ti;b.style.display='none';b.addEventListener('pointerdown',e=>e.stopPropagation());b.addEventListener('mousedown',e=>e.stopPropagation());b.onclick=e=>{e.stopPropagation();b.blur();if(puAllowed())fn()};host.appendChild(b);return b};
+  const pu=mk('bPU','PICK UP','Pick up (max score par +3)',()=>{if(confirm('Pick up on this hole? Scored as a max (par +3 or strokes +1).'))pickUp()}),sk=mk('bSkip','SKIP','Skip to the next hole',skipHole);
+  (function loop(){const w=puAllowed()?'':'none';if(pu.style.display!==w){pu.style.display=w;sk.style.display=w}requestAnimationFrame(loop)})()})();
+function showAbout(){show('scSetup',`<div class="pn"><div class="hdr"><h2>About Tour Sim</h2><button class="ib" id="abx">✕</button></div>
+ <p><b>Tour Sim ${esc(VERSION)}</b> is a fan-made golf simulator, made for fun.</p>
+ <p>Course layouts are <b>approximate</b>, rebuilt from public map data (© OpenStreetMap contributors, ODbL), elevation data and public scorecards. Holes, hazards and greens will not match the real courses exactly.</p>
+ <p>Tour Sim is <b>not affiliated with, endorsed by or sponsored by</b> any golf club, course, tour, league or brand. Course names are used only to describe the real places the layouts are based on. No real players, characters or logos are used.</p>
+ <p>All sound is synthesized in the browser; no recordings are used.</p></div>`);$('abx').onclick=showMenu}
+{const _sm=showMenu;showMenu=function(){const r=_sm.apply(this,arguments);try{const h=$('mHow');if(h&&!$('mAbout')){const b=document.createElement('button');b.className='btn alt c';b.id='mAbout';b.textContent='About';b.onclick=showAbout;h.after(b)}}catch(e){}return r}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}

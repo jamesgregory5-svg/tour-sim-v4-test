@@ -4,3 +4,4 @@ Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off 
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
+- v4.14: PICK UP and SKIP buttons in regular solo rounds (never career), About screen on the main menu.
