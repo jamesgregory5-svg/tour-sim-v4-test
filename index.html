@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.11';
+const VERSION='v4.12';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -1127,8 +1127,8 @@ void main(){vec3 N=normalize(vN);if(!gl_FrontFacing)N=-N;vec3 V=normalize(uEye-v
  col+=uSunCol*pow(max(dot(reflect(-uSun,N),V),0.),40.)*.3;col=fogit(col,vP);o=vec4(pow(tm(col),vec3(1./2.2)),1.);}`);
   R.pTr=prog(`
 layout(location=0) in vec4 aP;uniform mat4 uVP;out vec2 vA;void main(){vA=aP.zw;gl_Position=uVP*vec4(aP.xy,0.,1.);}`.replace('vec4(aP.xy,0.,1.)','vec4(aP.xyz,1.)').replace('layout(location=0) in vec4 aP;','layout(location=0) in vec3 aP;layout(location=1) in vec2 aA;').replace('vA=aP.zw;','vA=aA;'),`
-in vec2 vA;out vec4 o;uniform vec3 uTc;uniform float uHead;
-void main(){float a=abs(vA.y);float glow=exp(-a*a*6.)*.55;float core=1.-smoothstep(.12,.32,a);float fade=smoothstep(0.,.04,vA.x)*mix(.12,1.,pow(clamp(vA.x/max(uHead,.001),0.,1.),.7));float al=clamp(core+glow*.8,0.,1.);vec3 c=mix(uTc,vec3(1.),.18)*al;o=vec4(c*fade,al*fade);}`);
+in vec2 vA;out vec4 o;uniform vec3 uTc;uniform float uHead;uniform float uSty;uniform float uDots;
+void main(){float a=abs(vA.y);float glow=exp(-a*a*6.)*.55;float core=1.-smoothstep(.12,.32,a);if(uSty>.5&&uSty<1.5){if(fract(vA.x*uDots)>.5)discard;}if(uSty>1.5){glow=exp(-a*a*2.2)*1.15;core=1.-smoothstep(.04,.16,a);}float fade=smoothstep(0.,.04,vA.x)*mix(.12,1.,pow(clamp(vA.x/max(uHead,.001),0.,1.),.7));float al=clamp(core+glow*.8,0.,1.);vec3 c=mix(uTc,vec3(1.),.18)*al;o=vec4(c*fade,al*fade);}`);
   // ---------- buffers ----------
   const vao=(attrs,idx)=>{const v=gl.createVertexArray();gl.bindVertexArray(v);for(const a of attrs){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,a.d,a.dyn?gl.DYNAMIC_DRAW:gl.STATIC_DRAW);gl.enableVertexAttribArray(a.loc);gl.vertexAttribPointer(a.loc,a.n,gl.FLOAT,false,0,0);if(a.inst)gl.vertexAttribDivisor(a.loc,1);a.buf=b}
     let ib=null;if(idx){ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW)}gl.bindVertexArray(null);return{v,attrs,ib,n:idx?idx.length:0,it:idx instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT}};
@@ -1266,7 +1266,7 @@ function glDraw(R,cam,S){
     if(S.ballOn){const b=S.ballPos;const dE=Math.hypot(cam.eye[0]-b[0],cam.eye[1]-b[1],cam.eye[2]-b[2]);const r=Math.max(.0233,dE*.0012*Math.min(S.ballBoost||1,1.3));/* real size; only a slim minimum so a distant ball stays a visible dot */draw(R.ballM,TRS(b[0],b[1],b[2]+r,r,r,r),(typeof custBallRGB==='function'?custBallRGB():[1,1,1]),0,.35)}gl.uniform1f(u.uBallD,0);
     gl.enable(gl.CULL_FACE)}
   // tracer (additive)
-  if(R.tracerN>2){const p=R.pTr;gl.useProgram(p.p);gl.uniformMatrix4fv(p.u.uVP,false,VP);gl.uniform3fv(p.u.uTc,S.tracerCol||[1,.55,.15]);gl.uniform1f(p.u.uHead,S.tracerHead||1);
+  if(R.tracerN>2){const p=R.pTr;gl.useProgram(p.p);gl.uniformMatrix4fv(p.u.uVP,false,VP);gl.uniform3fv(p.u.uTc,S.tracerCol||[1,.55,.15]);gl.uniform1f(p.u.uHead,S.tracerHead||1);if(p.u.uSty)gl.uniform1f(p.u.uSty,typeof custTrailSty==='function'?custTrailSty():0);if(p.u.uDots)gl.uniform1f(p.u.uDots,R.tracerDots||40);
     gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);gl.disable(gl.CULL_FACE);gl.bindVertexArray(R.tracer.v);gl.drawArrays(gl.TRIANGLE_STRIP,0,R.tracerN);gl.depthMask(true);gl.disable(gl.BLEND);gl.enable(gl.CULL_FACE)}
   gl.bindVertexArray(null);
   R.lastVP=VP;return VP}
@@ -1274,10 +1274,10 @@ function glTracer(R,pts,n,eye,frac,fN,H){if(fN===undefined)fN=n;
   // pts Float32Array xyz (yards) n points; build camera-facing ribbon up to frac
   const gl=R.gl;const P=new Float32Array(n*6),A=new Float32Array(n*4);let m=0;
   for(let i=0;i<n;i++){const x=pts[i*3],y=pts[i*3+1],z=pts[i*3+2];const j=Math.min(n-1,i+1),k=Math.max(0,i-1);let tx=pts[j*3]-pts[k*3],ty=pts[j*3+1]-pts[k*3+1],tz=pts[j*3+2]-pts[k*3+2];
-    const vx=x-eye[0],vy=y-eye[1],vz=z-eye[2];let sx=ty*vz-tz*vy,sy=tz*vx-tx*vz,sz=tx*vy-ty*vx;const l=Math.hypot(sx,sy,sz)||1;const d=Math.hypot(vx,vy,vz);const gnd=i>=fN-1&&H;const w=gnd?Math.max(.018,d*.0016):Math.max(.05,d*.0026);if(gnd){// ground trail: lay it flat on the turf just above the surface so it bends with the roll / putt break
+    const vx=x-eye[0],vy=y-eye[1],vz=z-eye[2];let sx=ty*vz-tz*vy,sy=tz*vx-tx*vz,sz=tx*vy-ty*vx;const l=Math.hypot(sx,sy,sz)||1;const d=Math.hypot(vx,vy,vz);const gnd=i>=fN-1&&H;const gw=(typeof custTrailSty==='function'&&custTrailSty()===2)?2.4:1;const w=(gnd?Math.max(.018,d*.0016):Math.max(.05,d*.0026))*gw;if(gnd){// ground trail: lay it flat on the turf just above the surface so it bends with the roll / putt break
       const gz=H.hAt(x,y)+.012;const ux=tx,uy=ty,ul=Math.hypot(ux,uy)||1;P[m*3]=x-uy/ul*w;P[m*3+1]=y+ux/ul*w;P[m*3+2]=Math.max(z,gz);A[m*2]=i/(n-1)*frac;A[m*2+1]=1;m++;P[m*3]=x+uy/ul*w;P[m*3+1]=y-ux/ul*w;P[m*3+2]=Math.max(z,gz);A[m*2]=i/(n-1)*frac;A[m*2+1]=-1;m++;continue}sx*=w/l;sy*=w/l;sz*=w/l;
     P[m*3]=x+sx;P[m*3+1]=y+sy;P[m*3+2]=z+sz;A[m*2]=i/(n-1)*frac;A[m*2+1]=1;m++;P[m*3]=x-sx;P[m*3+1]=y-sy;P[m*3+2]=z-sz;A[m*2]=i/(n-1)*frac;A[m*2+1]=-1;m++}
-  gl.bindBuffer(gl.ARRAY_BUFFER,R.tracer.attrs[0].buf);gl.bufferSubData(gl.ARRAY_BUFFER,0,P.subarray(0,m*3));gl.bindBuffer(gl.ARRAY_BUFFER,R.tracer.attrs[1].buf);gl.bufferSubData(gl.ARRAY_BUFFER,0,A.subarray(0,m*2));R.tracerN=m}
+  gl.bindBuffer(gl.ARRAY_BUFFER,R.tracer.attrs[0].buf);gl.bufferSubData(gl.ARRAY_BUFFER,0,P.subarray(0,m*3));gl.bindBuffer(gl.ARRAY_BUFFER,R.tracer.attrs[1].buf);gl.bufferSubData(gl.ARRAY_BUFFER,0,A.subarray(0,m*2));R.tracerN=m;R.tracerDots=Math.max(6,n/7)}
 
 /* global tree placement guard: never in water, the ocean (inside or beyond the hole box, matching what the renderer draws as water), below sea level, or on sand / greens / fringe / tees / fairways */
 function seaLevel(H){if(H.seaZ!==undefined)return H.seaZ;const z=[];if(H.sea.length)for(let y=H.Y0+1;y<H.Y1-1;y+=3)for(let x=H.X0+1;x<H.X1-1;x+=3){const sf=H.surfAt(x,y);if(sf===S_WATER)z.push(H.hAt(x,y))}z.sort((a,b)=>a-b);H.seaZ=z.length?z[z.length>>1]:-1e9;return H.seaZ}
@@ -2474,12 +2474,13 @@ function splashDraw(R,draw){const M=SPL.M,C=SPL.C,P=SPL.P;M.fill(0);M[15]=1;
  const _ps=penShow;penShow=function(o){_ps(o);const d=$('pen');if(d)d.style.animation=SPL.on&&SPL.t<.5?'penIn .3s ease .9s both':''}}
 
 /* ================= v2.0: Customization (ball colour, trail, hole explosion) + Tournament mode ================= */
-const CUST_DEF={ball:'white',trail:1,tlen:'full',tcol:'orange',boom:1};
-const BALL_COLS={white:[1,1,1],yellow:[1,.86,.12],orange:[1,.5,.08],red:[.9,.1,.1],blue:[.12,.36,.95],pink:[1,.45,.75],black:[.05,.05,.06]};
-const TRAIL_COLS={orange:[1,.55,.15],white:[.9,.9,.9],yellow:[1,.85,.2],red:[1,.2,.15],blue:[.25,.55,1],green:[.3,1,.45],pink:[1,.4,.75]};
+const CUST_DEF={ball:'white',trail:1,tlen:'full',tcol:'orange',tsty:'solid',boom:1};
+const BALL_COLS={white:[1,1,1],yellow:[1,.86,.12],orange:[1,.5,.08],red:[.9,.1,.1],blue:[.12,.36,.95],pink:[1,.45,.75],black:[.05,.05,.06],green:[.15,.75,.3],purple:[.55,.2,.9],teal:[.1,.75,.75],lime:[.6,1,.15],gold:[.95,.72,.2],silver:[.75,.78,.82]};
+const TRAIL_COLS={orange:[1,.55,.15],white:[.9,.9,.9],yellow:[1,.85,.2],red:[1,.2,.15],blue:[.25,.55,1],green:[.3,1,.45],pink:[1,.4,.75],purple:[.65,.3,1],teal:[.15,.9,.85],gold:[1,.75,.25]};const TRAIL_STY=['solid','dotted','glow'];;
 const TRAIL_LEN={short:60,medium:150,full:1e9};
-function custGet(){const v=store('ts.cust');const o=Object.assign({},CUST_DEF,v&&typeof v==='object'?v:{});if(!BALL_COLS[o.ball])o.ball='white';if(!TRAIL_COLS[o.tcol])o.tcol='orange';if(!(o.tlen in TRAIL_LEN))o.tlen='full';o.trail=o.trail?1:0;o.boom=o.boom?1:0;return o}
+function custGet(){const v=store('ts.cust');const o=Object.assign({},CUST_DEF,v&&typeof v==='object'?v:{});if(!BALL_COLS[o.ball])o.ball='white';if(!TRAIL_COLS[o.tcol])o.tcol='orange';if(!(o.tlen in TRAIL_LEN))o.tlen='full';if(!TRAIL_STY.includes(o.tsty))o.tsty='solid';o.trail=o.trail?1:0;o.boom=o.boom?1:0;return o}
 function custSet(k,v){const o=custGet();o[k]=v;store('ts.cust',o);G.cust=o}
+function custTrailSty(){const r=G.round;if((r&&r.car)||G.crCh)return 0;return Math.max(0,TRAIL_STY.indexOf(custC().tsty))}
 function custC(){return G.cust||(G.cust=custGet())}
 function custBallRGB(){return BALL_COLS[custC().ball]||[1,1,1]}
 function custTrailOn(){return !!custC().trail}
@@ -2491,13 +2492,13 @@ function showCustom(){const o=custC();const sw=(id,list,cur,fn)=>`<div class="se
   const s=show('scSetup',`<div class="pn"><div class="hdr"><h2>Customization</h2><button class="ib" id="cx">✕</button></div>
   <div class="sec">Ball color</div>${sw('cBall',Object.keys(BALL_COLS),o.ball,dot)}
   <div class="sec">Ball trail</div>${sw('cTr',['on','off'],o.trail?'on':'off')}
-  ${o.trail?`<div class="sec">Trail length</div>${sw('cTl',Object.keys(TRAIL_LEN),o.tlen)}<div class="sec">Trail color</div>${sw('cTc',Object.keys(TRAIL_COLS),o.tcol,tdot)}`:''}
+  ${o.trail?`<div class="sec">Trail length</div>${sw('cTl',Object.keys(TRAIL_LEN),o.tlen)}<div class="sec">Trail style</div>${sw('cTs',TRAIL_STY,o.tsty)}<div class="sec">Trail color</div>${sw('cTc',Object.keys(TRAIL_COLS),o.tcol,tdot)}`:''}
   <div class="sec">Hole explosion</div>${sw('cBm',['on','off'],o.boom?'on':'off')}
   <div class="gnote">The ball color shows on the tee, in play and in replays. The trail follows the ball's flight in shots and replays. The explosion plays (with sound) when the ball drops in the hole.</div>
   <button class="btn alt" id="cTest" style="margin-top:12px">Preview explosion</button>
   <button class="btn c" id="cDone" style="margin-top:10px">Done</button></div>`);
   const bind=(id,fn)=>{s.querySelector('#'+id)&&(s.querySelector('#'+id).onclick=e=>{const b=e.target.closest('button');if(b){fn(b.dataset.v);showCustom()}})};
-  bind('cBall',v=>custSet('ball',v));bind('cTr',v=>custSet('trail',v==='on'?1:0));bind('cTl',v=>custSet('tlen',v));bind('cTc',v=>custSet('tcol',v));bind('cBm',v=>custSet('boom',v==='on'?1:0));
+  bind('cBall',v=>custSet('ball',v));bind('cTr',v=>custSet('trail',v==='on'?1:0));bind('cTl',v=>custSet('tlen',v));bind('cTc',v=>custSet('tcol',v));bind('cTs',v=>custSet('tsty',v));bind('cBm',v=>custSet('boom',v==='on'?1:0));
   $('cTest').onclick=()=>custBoom(null,true);$('cx').onclick=$('cDone').onclick=showMenu}
 /* --- hole explosion: particles on a 2D overlay at the cup + synthesized blast --- */
 function boomSound(){try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime;const n=Math.floor(AC.sampleRate*1.2),buf=AC.createBuffer(1,n,AC.sampleRate),d=buf.getChannelData(0);for(let i=0;i<n;i++){const e=Math.pow(1-i/n,2.2);d[i]=(Math.random()*2-1)*e}
