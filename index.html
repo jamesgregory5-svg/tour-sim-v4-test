@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.20';
+const VERSION='v4.21';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -1258,12 +1258,12 @@ function glDraw(R,cam,S){
     const draw=(m,M,c,flag,em)=>{gl.uniformMatrix4fv(u.uM,false,M);gl.uniform3fv(u.uC,c);gl.uniform1f(u.uFlag,flag||0);gl.uniform1f(u.uEmis,em||0);gl.bindVertexArray(m.v);gl.drawElements(gl.TRIANGLES,m.n,m.it,0)};
     const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);
     for(const f of S.flags||[]){const z=H.hAt(f.x,f.y);const dE=Math.hypot(cam.eye[0]-f.x,cam.eye[1]-f.y);const k=Math.max(1,dE/90),pr=Math.max(.014,dE*.0011);
-      draw(R.cyl,TRS(f.x,f.y,z-.1,pr,pr,2.6+(k-1)*.6),[.97,.97,.94],0,.4);draw(R.flagM,TRS(f.x+pr,f.y,z+2.6+(k-1)*.6-.45*k,.7*k,1,.45*k),f.col||[.95,.85,.1],1,.45)}
+      if(G.tod==='night'){const nc=typeof nightFlagRGB==='function'?nightFlagRGB():[1,.2,.8];draw(R.cyl,TRS(f.x,f.y,z-.1,pr*1.8,pr*1.8,2.6+(k-1)*.6),nc,0,2.6);draw(R.flagM,TRS(f.x+pr,f.y,z+2.6+(k-1)*.6-.45*k,.7*k,1,.45*k),nc,1,2.6)}else{draw(R.cyl,TRS(f.x,f.y,z-.1,pr,pr,2.6+(k-1)*.6),[.97,.97,.94],0,.4);draw(R.flagM,TRS(f.x+pr,f.y,z+2.6+(k-1)*.6-.45*k,.7*k,1,.45*k),f.col||[.95,.85,.1],1,.45)}}
     if(R.bldFor!==H)bldBuild(R,H);{const I4=TRS(0,0,0,1,1,1);for(const g of R.bld)draw(g.m,I4,g.c.map(v=>v*.8),0,.45)}if(SPL.on)splashDraw(R,draw);// neutral fill light: shaded walls read grey/beige, not navy
     if(S.tee)draw(R.cyl,TRS(S.tee.x,S.tee.y,S.tee.z-.05,.006,.006,.06),[1,1,1]);
     for(const t of S.teeMarks||[]){draw(R.sphere,TRS(t.x,t.y,t.z+.08,.13,.13,.11),t.col,0,.15)}
     gl.uniform1f(u.uBallD,1);for(const b of S.extraBalls||[])draw(R.ballM,TRS(b.x,b.y,b.z+.0233,.0233,.0233,.0233),[1,1,1],0,.1);
-    if(S.ballOn){const b=S.ballPos;const dE=Math.hypot(cam.eye[0]-b[0],cam.eye[1]-b[1],cam.eye[2]-b[2]);const r=Math.max(.0233,dE*.0012*Math.min(S.ballBoost||1,1.3));/* real size; only a slim minimum so a distant ball stays a visible dot */draw(R.ballM,TRS(b[0],b[1],b[2]+r,r,r,r),(typeof custBallRGB==='function'?custBallRGB():[1,1,1]),0,.35)}gl.uniform1f(u.uBallD,0);
+    if(S.ballOn){const b=S.ballPos;const dE=Math.hypot(cam.eye[0]-b[0],cam.eye[1]-b[1],cam.eye[2]-b[2]);const r=Math.max(.0233,dE*.0012*Math.min(S.ballBoost||1,1.3));/* real size; only a slim minimum so a distant ball stays a visible dot */draw(R.ballM,TRS(b[0],b[1],b[2]+r,r,r,r),(G.tod==='night'&&typeof neonRGB==='function'?neonRGB():typeof custBallRGB==='function'?custBallRGB():[1,1,1]),0,G.tod==='night'?2.4:.35)}gl.uniform1f(u.uBallD,0);
     gl.enable(gl.CULL_FACE)}
   // tracer (additive)
   if(R.tracerN>2){const p=R.pTr;gl.useProgram(p.p);gl.uniformMatrix4fv(p.u.uVP,false,VP);gl.uniform3fv(p.u.uTc,S.tracerCol||[1,.55,.15]);gl.uniform1f(p.u.uHead,S.tracerHead||1);if(p.u.uSty)gl.uniform1f(p.u.uSty,typeof custTrailSty==='function'?custTrailSty():0);if(p.u.uDots)gl.uniform1f(p.u.uDots,R.tracerDots||40);
@@ -3557,6 +3557,30 @@ function showAuction(msg){const C=crLoad();if(!C){showCareer();return}crGear(C);
   document.querySelectorAll('[data-bid]').forEach(b=>b.onclick=()=>{const C=crLoad();crGear(C);const l=aucLots(C)[+b.dataset.bid];const nb=Math.round(l.cur*1.1/500)*500;if(C.cash<nb)return showAuction('Not enough prize money for that bid.');
     if(nb>l.max){C.cash-=nb;l.st=1;C.own.push(l.id);crSave(C);return showAuction('Sold to you for '+crMoney(nb)+'! Equip it in the pro shop.')}l.cur=Math.min(l.max,Math.round(nb*1.05/500)*500);if(l.cur>=l.max){l.cur=l.max}crSave(C);showAuction('Outbid! Another bidder raised to '+crMoney(l.cur)+'.')});
   document.querySelectorAll('[data-bn]').forEach(b=>b.onclick=()=>{const C=crLoad();crGear(C);const l=aucLots(C)[+b.dataset.bn];const bn=Math.round(l.start*1.5/1000)*1000;if(C.cash<bn)return showAuction('Not enough prize money to buy it now.');C.cash-=bn;l.st=1;C.own.push(l.id);crSave(C);showAuction('Bought for '+crMoney(bn)+'! Equip it in the pro shop.')})}
+
+/* v4.21: Night as a time-of-day option (regular play). Dark course, neon ball (player picks the colour), vibrant glowing flagsticks. Lighting only, physics untouched. */
+TOD.night={n:'Night',az:200,el:60,sun:[.3,-.3,.9],sunCol:[.035,.045,.09],skyTop:[.008,.01,.03],skyHor:[.025,.03,.06],fog:[.015,.02,.04],far:[.008,.01,.015],fogMul:1.4,mist:0};
+const NEON={green:[.2,1,.35],pink:[1,.25,.75],cyan:[.2,.95,1],orange:[1,.55,.1],yellow:[1,.95,.2],purple:[.7,.3,1],red:[1,.15,.15],white:[.95,.97,1]};
+function neonKey(){const k=store('ts.neon');return NEON[k]?k:'green'}
+function neonRGB(){return NEON[neonKey()]}
+function nightFlagRGB(){const k=neonKey();return k==='pink'||k==='purple'?[1,.85,.1]:[1,.2,.75]}/* flags contrast with the ball */
+function rgbCss(c,a){return `rgba(${c.map(v=>Math.round(v*255)).join(',')},${a})`}
+function showNeonPick(after){let d=$('neonPk');if(d)d.remove();d=document.createElement('div');d.id='neonPk';d.style.cssText='position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(0,0,8,.72)';
+  d.innerHTML=`<div class="pn" style="max-width:460px;background:#070a14;border:1px solid #223"><div class="hdr"><h2>Night golf · neon ball</h2></div><div class="gnote">What colour neon do you want your glowing ball to be?</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px">${Object.keys(NEON).map(k=>`<button data-n="${k}" style="padding:12px 4px;border-radius:12px;border:2px solid ${k===neonKey()?'#fff':'#334'};background:#0b0f1c;color:#fff;font:700 12px inherit;cursor:pointer"><span style="display:block;margin:0 auto 6px;width:26px;height:26px;border-radius:50%;background:${rgbCss(NEON[k],1)};box-shadow:0 0 12px 4px ${rgbCss(NEON[k],.85)}"></span>${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div></div>`;
+  d.onclick=e=>{const b=e.target.closest('[data-n]');if(!b)return;store('ts.neon',b.dataset.n);d.remove();if(after)after()};document.body.appendChild(d)}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#tod [data-k="night"]');if(b)setTimeout(()=>showNeonPick(),0)},true);
+/* glow overlay: additive halos at the ball and each flagstick, drawn over the 3D view (under the HUD) */
+const NG={cv:null,x:null,S:null};
+function ngCanvas(){if(NG.cv)return NG.cv;const c=document.createElement('canvas');c.id='ngC';c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;mix-blend-mode:screen';document.body.appendChild(c);const gl=$('gl');if(gl&&gl.parentNode)gl.after(c);NG.cv=c;NG.x=c.getContext('2d');return c}
+{const _d=glDraw;glDraw=function(R,cam,S){const r=_d.apply(this,arguments);try{NG.S=S;ngPaint(R,S)}catch(e){}return r}}
+function ngPaint(R,S){const on=G.tod==='night'&&G.mode&&G.mode!=='menu'&&!G.cartOn;const c=ngCanvas();if(!on){if(c.style.display!=='none'){c.style.display='none'}return}c.style.display='block';
+  const w=innerWidth,h=innerHeight,dpr=Math.min(2,devicePixelRatio||1);if(c.width!==Math.round(w*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr)}const x=NG.x;x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);x.globalCompositeOperation='lighter';
+  const halo=(p,rad,col,a)=>{if(!p)return;const g=x.createRadialGradient(p[0],p[1],0,p[0],p[1],rad);g.addColorStop(0,rgbCss(col,a));g.addColorStop(.25,rgbCss(col,a*.55));g.addColorStop(1,rgbCss(col,0));x.fillStyle=g;x.fillRect(p[0]-rad,p[1]-rad,rad*2,rad*2)};
+  const H=R.hole&&R.hole.H;const fc=nightFlagRGB();
+  for(const f of S.flags||[]){if(!H)break;const z=H.hAt(f.x,f.y);const lo=project(f.x,f.y,z),hi=project(f.x,f.y,z+2.6),mid=project(f.x,f.y,z+1.5);if(!lo||!hi)continue;const len=Math.hypot(hi[0]-lo[0],hi[1]-lo[1]);const rad=Math.max(40,Math.min(220,len*1.6));
+    halo(mid,rad*1.3,fc,.55);halo(hi,rad*.7,fc,.8);x.strokeStyle=rgbCss(fc,.9);x.lineWidth=Math.max(2,len*.05);x.shadowColor=rgbCss(fc,1);x.shadowBlur=18;x.beginPath();x.moveTo(lo[0],lo[1]);x.lineTo(hi[0],hi[1]);x.stroke();x.shadowBlur=0}
+  if(S.ballOn&&S.ballPos){const b=S.ballPos;const p=project(b[0],b[1],b[2]+.03);if(p){const dE=Math.hypot(R.lastEye?R.lastEye[0]-b[0]:0,0);halo(p,60,neonRGB(),1);halo(p,22,neonRGB(),1);halo(p,8,[1,1,1],.9)}}
+  x.globalCompositeOperation='source-over'}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}

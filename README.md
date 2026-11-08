@@ -11,3 +11,4 @@ Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off 
 - v4.18: career Cart Chase Sprint, an optional 2-lap bonus race offered after events 3 and 7 each season (top 3 win small prizes).
 - v4.19: Major jacket (career locker), winner interview after wins, pre-event weather forecast (read-only, from course conditions). Fix: Course bio link sits in the next-event card.
 - v4.20: pro shop trade-in (40%), seasonal limited collections rotating each season, auction house for rare parody tour clubs (bid or buy now, new lots every event).
+- v4.21: Night as a time-of-day option (regular play): neon ball colour picker, glowing flagsticks, dark night lighting. Lighting only.
