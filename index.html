@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.12';
+const VERSION='v4.13';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -2396,33 +2396,38 @@ function bird(){const ac=crAC(),m=crMaster();if(!ac||!m||crowdLevel()===0)return
 function applause(size,dur){const ac=crAC(),m=crMaster();if(!ac||!m||crowdLevel()===0)return;const t=ac.currentTime+.05;const sr=ac.sampleRate,len=Math.floor(sr*dur),b=ac.createBuffer(2,len,sr);
   const clappers=Math.round(12+size*70);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let k=0;k<clappers;k++){const rate=3.2+Math.random()*2.2,ph=Math.random(),st=Math.random()*.25*dur,en=dur*(.55+Math.random()*.45);
       for(let tt=st+ph/rate;tt<en;tt+=1/rate*(.9+Math.random()*.2)){const i0=Math.floor(tt*sr),a=.5+Math.random()*.5;for(let i=0;i<sr*.012&&i0+i<len;i++)d[i0+i]+=(Math.random()*2-1)*a*Math.exp(-i/(sr*.0025))}}}
-  const s=ac.createBufferSource();s.buffer=b;const f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=1800;f.Q.value=.6;const g=ac.createGain();const pk=(.05+size*.09)/Math.sqrt(clappers/20);
+  const s=ac.createBufferSource();s.buffer=b;const f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=1500;f.Q.value=.45;const g=ac.createGain();const pk=(.12+size*.18)/Math.sqrt(clappers/20);{const v=crVerb();if(v)g.connect(v)}
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+.35);g.gain.setValueAtTime(pk,t+dur*.45);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(m);s.start(t)}
-/* voiced crowd vowel: many detuned voices through two formants; shape 'ooh' rises, 'groan'/'sigh' fall, 'roar' is broad and loud */
-function voices(kind,size,dur){const ac=crAC(),m=crMaster();if(!ac||!m||crowdLevel()===0)return;const t=ac.currentTime+.05;const out=ac.createGain();
-  const F=kind==='ooh'?[[420,6],[820,7]]:kind==='roar'?[[700,2],[1250,2.5]]:[[640,5],[1050,6]];const fs=F.map(([fq,q])=>{const b=ac.createBiquadFilter();b.type='bandpass';b.frequency.value=fq;b.Q.value=q;b.connect(out);return b});
-  const n=10+Math.round(size*14);for(let i=0;i<n;i++){const o=ac.createOscillator();o.type='sawtooth';const base=(Math.random()<.55?120:210)*(.85+Math.random()*.35);const vg=ac.createGain();vg.gain.value=1/n;
-    if(kind==='ooh'){o.frequency.setValueAtTime(base,t);o.frequency.linearRampToValueAtTime(base*1.35,t+dur*.8)}else if(kind==='roar'){o.frequency.setValueAtTime(base*1.1,t);o.frequency.linearRampToValueAtTime(base*1.3,t+.4);o.frequency.linearRampToValueAtTime(base*1.05,t+dur)}
-    else{o.frequency.setValueAtTime(base*1.2,t);o.frequency.exponentialRampToValueAtTime(base*.72,t+dur)}
-    const vib=ac.createOscillator(),vd=ac.createGain();vib.frequency.value=4+Math.random()*3;vd.gain.value=base*.02;vib.connect(vd);vd.connect(o.frequency);o.connect(vg);fs.forEach(b=>vg.connect(b));const st=t+Math.random()*.18;o.start(st);vib.start(st);o.stop(t+dur+.2);vib.stop(t+dur+.2)}
-  if(kind==='roar'){const ns=crSrc(false),lp=ac.createBiquadFilter(),ng=ac.createGain();lp.type='lowpass';lp.frequency.value=2200;ng.gain.value=.5;ns.connect(lp);lp.connect(ng);ng.connect(out);ns.start(t,Math.random());ns.stop(t+dur+.2)}
-  const pk=(kind==='roar'?.16:kind==='ooh'?.07:.06)*(.6+size*.6);const g=ac.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+(kind==='ooh'?dur*.7:.25));g.gain.exponentialRampToValueAtTime(.0001,t+dur);out.connect(g);g.connect(m)}
-function crowd(ev,size){size=clamp(size===undefined?.5:size,0,1);G.lastCrowd={ev,size,t:performance.now()};if(crowdLevel()===0||G.mode!=='round')return;
+/* v4.13 crowd voices: built from many breathy noise "voices" through moving vowel formants (no buzzy sawtooth oscillators), stereo-spread, with a soft reverb-ish tail */
+function crVerb(){const ac=crAC();if(!ac)return null;if(CRW.vb)return CRW.vb;const sr=ac.sampleRate,n=Math.floor(sr*1.6),b=ac.createBuffer(2,n,sr);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3)}
+  const cv=ac.createConvolver();cv.buffer=b;const g=ac.createGain();g.gain.value=.22;cv.connect(g);g.connect(crMaster());CRW.vb=cv;return cv}
+function crOut(ac,pk,t,att,dur){const g=ac.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+att);g.gain.setTargetAtTime(0,t+Math.max(att,dur*.55),dur*.18);g.connect(crMaster());const v=crVerb();if(v)g.connect(v);return g}
+function voices(kind,size,dur){const ac=crAC(),m=crMaster();if(!ac||!m||crowdLevel()===0)return;const t=ac.currentTime+.04;
+  const VW={ooh:[[330,520],[700,900]],groan:[[650,420],[1100,750]],sigh:[[560,380],[950,700]],roar:[[750,850],[1300,1500]]}[kind]||[[600,600],[1000,1000]];
+  const pk=(kind==='roar'?.5:kind==='ooh'?.32:.28)*(.55+size*.6);const out=crOut(ac,pk,t,kind==='ooh'?dur*.55:kind==='roar'?.3:.2,dur);
+  const n=6+Math.round(size*8);for(let i=0;i<n;i++){const s=crSrc(false),st=t+Math.random()*(kind==='roar'?.25:.15),j=.85+Math.random()*.3,pan=ac.createStereoPanner?ac.createStereoPanner():null,vg=ac.createGain();vg.gain.value=1/Math.sqrt(n);
+    VW.forEach(([f0,f1],k)=>{const b=ac.createBiquadFilter();b.type='bandpass';b.Q.value=kind==='roar'?2:4.5;b.frequency.setValueAtTime(f0*j,st);b.frequency.linearRampToValueAtTime(f1*j,st+dur*.8);const bg=ac.createGain();bg.gain.value=k?.55:1;s.connect(b);b.connect(bg);bg.connect(vg)});
+    if(pan){pan.pan.value=Math.random()*1.6-.8;vg.connect(pan);pan.connect(out)}else vg.connect(out);s.start(st,Math.random()*3);s.stop(st+dur+.3)}
+  if(kind==='roar'){const s=crSrc(false),hp=ac.createBiquadFilter(),lp=ac.createBiquadFilter(),g=ac.createGain();hp.type='highpass';hp.frequency.value=250;lp.type='lowpass';lp.frequency.value=3000;g.gain.value=.35;s.connect(hp);hp.connect(lp);lp.connect(g);g.connect(out);s.start(t,Math.random());s.stop(t+dur+.3);
+    for(let w=0;w<2;w++){const o=ac.createOscillator(),wg=ac.createGain(),s0=t+.3+Math.random()*1.2,f=1800+Math.random()*900;o.type='sine';o.frequency.setValueAtTime(f,s0);o.frequency.linearRampToValueAtTime(f*1.25,s0+.25);o.frequency.linearRampToValueAtTime(f*.9,s0+.55);wg.gain.setValueAtTime(0,s0);wg.gain.linearRampToValueAtTime(.025*size,s0+.05);wg.gain.linearRampToValueAtTime(0,s0+.6);o.connect(wg);wg.connect(m);o.start(s0);o.stop(s0+.7)}}}
+let CR_LAST=0;
+function crowd(ev,size){size=clamp(size===undefined?.5:size,0,1);G.lastCrowd={ev,size,t:performance.now()};if(crowdLevel()===0||G.mode!=='round')return;const now=performance.now();if(now-CR_LAST<700)return;CR_LAST=now;
   if(ev==='applause')applause(size,2.2+size*1.6);
-  else if(ev==='roar'){voices('roar',size,2.6);applause(1,4.2)}
-  else if(ev==='ooh')voices('ooh',size,1.3);
-  else if(ev==='groan'){voices('ooh',size,.7);setTimeout(()=>voices('groan',size,1.4),650)}
-  else if(ev==='sigh')voices('sigh',size*.8,1.6)}
+  else if(ev==='roar'){voices('roar',size,3);setTimeout(()=>applause(1,4.5),250)}
+  else if(ev==='ooh')voices('ooh',size,1.4);
+  else if(ev==='groan'){voices('ooh',size*.8,.8);setTimeout(()=>voices('groan',size,1.5),600)}
+  else if(ev==='sigh')voices('sigh',size*.8,1.7)}
 /* decide the reaction from the finished shot */
 const _finishShotCr=finishShot;finishShot=function(){const a=G.anim,H=G.H;let info=null;try{if(a&&a.res&&H){let md=1e9;const P=a.P;for(let i=0;i<(a.n||0);i++){const d=Math.hypot(P[i*3]-H.cup.x,P[i*3+1]-H.cup.y);if(d<md)md=d}
-    info={put:!!a.put,kind:a.res.kind,d0:Math.hypot(a.from.x-H.cup.x,a.from.y-H.cup.y),md,fromSurf:G.lastPos&&G.lastPos.surf}}}catch(e){}
+    info={put:!!a.put,kind:a.res.kind,d0:Math.hypot(a.from.x-H.cup.x,a.from.y-H.cup.y),md,fx:a.from.x,fy:a.from.y,fromSurf:G.lastPos&&G.lastPos.surf}}}catch(e){}
   const r=_finishShotCr.apply(this,arguments);
   try{if(info&&G.mode==='round'){const b=G.ball,dEnd=Math.hypot(b.x-H.cup.x,b.y-H.cup.y);
     if(info.kind==='sunk'){const d=G.strokes-H.par;if(!info.put)crowd('roar',1);else if(d<=-1)crowd('roar',d<=-2?1:.8);else if(info.d0*3>15)crowd('applause',.8);else crowd('applause',d===0?.45:.25)}
     else if(info.kind==='water')crowd('sigh',.7);
     else if(info.put){if(info.md<.13&&dEnd>.05)crowd('groan',.85);else if(info.md<.4&&info.d0*3>8)crowd('groan',.5)}
     else if(H.surfAt(b.x,b.y)===S_GREEN){const ft=dEnd*3;if(ft<8)crowd('applause',info.d0>60?.9:.6);else if(ft<25&&info.d0>90)crowd('applause',.35)}
-    else if(!info.put&&info.md<.6&&info.d0>8)crowd('ooh',.7)}}catch(e){}
+    else if(!info.put&&info.md<.6&&info.d0>8)crowd('ooh',.7);
+    else if(!info.put&&info.fromSurf===S_TEE&&H.par>3&&Math.hypot(b.x-info.fx,b.y-info.fy)>270&&H.surfAt(b.x,b.y)===S_FW)crowd('applause',.4)}}catch(e){}
   return r};
 /* ambient on during play, off in menus; start on the first user gesture (autoplay rules) */
 setInterval(()=>{try{const want=G.mode&&G.mode!=='menu'&&G.phase!=='menu'&&crowdLevel()>0&&AC&&AC.state==='running';if(want&&!CRW.amb)ambStart();else if(!want&&CRW.amb)ambStop();if(CRW.master&&AC)CRW.master.gain.setTargetAtTime(crowdLevel(),AC.currentTime,.1)}catch(e){}},500);
