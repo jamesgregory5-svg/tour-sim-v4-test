@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.16';
+const VERSION='v4.17';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3440,6 +3440,44 @@ function clubBio(x){if(x.s==='t')return'Cosmetic trail: no stats, all style.';co
 {const _st=crStash;crStash=function(){_st();try{const k=crSlotKey(crAct()),s=store(k);if(s&&s.C){s.bag=store('ts.bag');s.cust=store('ts.cust');store(k,s)}}catch(e){}}}
 {const _u=crUse;crUse=function(i){_u(i);try{const s=crSlot(i);if(s){if(s.bag!==undefined)store('ts.bag',s.bag);if(s.cust!==undefined)store('ts.cust',s.cust);G.cust=null}}catch(e){}}}
 {const _cs=crSave;crSave=function(C){const k=crSlotKey(crAct()),o=store(k);_cs(C);try{const s=store(k);if(s&&o){if(o.bag!==undefined)s.bag=o.bag;if(o.cust!==undefined)s.cust=o.cust;store(k,s)}}catch(e){}}}
+
+/* v4.17: rival trash talk, rival messages (career inbox), challenge-a-rival 18-hole head-to-head match */
+const RV_PRE=['Hope you packed extra balls, {me}. You\'ll need them at {c}.','Saw the draw for {c}. Try to keep up this time.','I\'ll save you a spot on the leaderboard. Somewhere near the bottom.','Big week at {c}. For me, anyway.','Heard your short game is "developing". Cute.','Don\'t worry, {me}, second place pays too.'];
+const RV_WIN=['Lucky bounces, {me}. Enjoy it while it lasts.','Fine. You got me this week. Won\'t happen twice.','Okay, that was a decent round. Don\'t let it go to your head.'];
+const RV_LOSE=['Rough week, {me}? I barely noticed you out there.','Finished ahead of you again. Getting to be a habit.','Want some tips? My caddie gives lessons. Cheap.'];
+const RV_DM=['Next time we\'re paired, loser buys dinner.','My coach says you\'re "no threat". Prove him wrong.','Fancy a head-to-head? 18 holes, money on the line. You know where to find me.','Nice gear upgrade. Shame about the swing.','Rankings don\'t lie, {me}. Check them.'];
+function rvPick(a,seed){return a[((seed>>>0)%a.length)]}
+function rvFmt(s,C,cid){return s.replace(/\{me\}/g,C.name).replace(/\{c\}/g,cid&&CID[cid]?CID[cid].name.replace(/ \(.*\)$/,''):'this week')}
+function rvMsgs(C){C.msgs=Array.isArray(C.msgs)?C.msgs:[];return C.msgs}
+function rvSend(C,from,text){const M=rvMsgs(C);M.push({f:from,t:text,d:crDay(),r:0});while(M.length>40)M.shift()}
+/* after each career event: the nearest rival reacts (always one message, not spam) */
+{const _cf=crFinish;crFinish=function(){const C0=crLoad();const evn=C0?C0.ev:0;const r=_cf.apply(this,arguments);try{const C=crLoad();const res=C&&C.res[C.res.length-1];if(C&&res&&C.ev!==evn){const seed=C.season*97+C.ev*13;const rv=CR_RIVALS[seed%CR_RIVALS.length];
+  const line=res.pos<=3?rvPick(RV_WIN,seed):rvPick(RV_LOSE,seed);rvSend(C,rv,rvFmt(line,C,res.cid));if(seed%3===0)rvSend(C,CR_RIVALS[(seed+1)%CR_RIVALS.length],rvFmt(rvPick(RV_DM,seed>>1),C));crSave(C)}}catch(e){console.warn(e)}return r}}
+/* head-to-head match */
+function rvStake(C){return Math.max(1000,Math.round(CR_TIERS[C.tier].purse*.04/100)*100)}
+function rvStart(rv){const C=crLoad();if(!C)return;const E=crEvent(C);const cid=E.cid,tee=E.tee;
+  startRound(cid,tee,0,18,[{name:C.name,owner:1}],0,typeof todKey==='function'?todKey():undefined);if(G.round){G.round.car=1;G.round.rvm={rv,stake:rvStake(C),seed:(Date.now()>>>0)};store('ts.round',{r:G.round,hs:null});toast('Match vs '+rv,'18 holes, stroke play · '+crMoney(G.round.rvm.stake)+' on the line',3000)}}
+{const _tl=tnLoad;tnLoad=function(){const r=G.round;if(r&&r.rvm)return null;return _tl()}}
+{const _fr=finishRound;finishRound=function(){const r=G.round;if(!(r&&r.rvm))return _fr.apply(this,arguments);const C=crLoad();const m=r.rvm;const c=CID[r.cid];const par=cpar(c,r.tee).slice(r.start,r.start+r.n).reduce((a,b)=>a+b,0);const tot=r.sc.reduce((a,b)=>a+b,0);
+  const R=tnRng(m.seed);const mu=(CR_BASE[C?C.lvl:0]||0)+CR_TIERS[C?C.tier:0].mu-1.5;const rtp=Math.round(mu+tnGauss(R)*2.6);const mtp=tot-par;const res=mtp<rtp?'W':mtp>rtp?'L':'H';
+  if(C){C.rvm=C.rvm||{n:0,rec:{}};C.rvm.n++;const k=C.rvm.rec[m.rv]=C.rvm.rec[m.rv]||[0,0,0];k[res==='W'?0:res==='L'?1:2]++;if(res==='W'){C.cash+=m.stake;C.earn+=m.stake}else if(res==='L')C.cash=Math.max(0,C.cash-Math.round(m.stake/2));
+    rvSend(C,m.rv,rvFmt(res==='W'?rvPick(RV_WIN,m.seed):res==='L'?rvPick(RV_LOSE,m.seed):'A tie? Rematch. Soon.',C,r.cid));crSave(C)}
+  store('ts.round',null);G.round=null;G.mode='summary';try{$('hud').classList.remove('on');$('next').style.display='none'}catch(e){}
+  show('scSetup',`<div class="pn"><div class="hdr"><h2>Match result</h2></div><div style="text-align:center;font:900 26px/1.2 system-ui,sans-serif;color:${res==='W'?'#3fe0b0':res==='L'?'#ff7a6a':'#ffd24a'}">${res==='W'?'You beat '+esc(m.rv)+'!':res==='L'?esc(m.rv)+' wins':'All square'}</div>
+  <table style="width:100%;font-size:15px;margin:12px 0"><tr><td>${esc(C?C.name:'You')}</td><td style="text-align:right"><b>${tnFmt(mtp)}</b> (${tot})</td></tr><tr><td>${esc(m.rv)}</td><td style="text-align:right"><b>${tnFmt(rtp)}</b> (${par+rtp})</td></tr></table>
+  <div class="gnote">${res==='W'?'You collect '+crMoney(m.stake)+'.':res==='L'?'You pay '+crMoney(Math.round(m.stake/2))+' (half stake).':'Stakes returned.'} ${esc(c.name)}.</div><button class="btn c" id="rvOk" style="margin-top:12px">Career</button></div>`);$('rvOk').onclick=()=>{try{menuBG()}catch(e){}showCareer()}}}
+function showRivals(){const C=crLoad();if(!C){showCareer();return}const sv=store('ts.round');const busy=sv&&sv.r&&sv.r.car;const rec=(C.rvm&&C.rvm.rec)||{};
+  show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="rvB">‹</button><h2>Challenge a rival</h2></div><div class="gnote">18-hole stroke-play match at your next event's course. Win and collect ${crMoney(rvStake(C))}; lose and pay half. ${busy?'<b>Finish your current career round first.</b>':''}</div>
+  ${CR_RIVALS.map(n=>{const k=rec[n]||[0,0,0];return `<div style="background:#121a20;border-radius:12px;padding:10px;margin:8px 0;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:800">${esc(n)}</div><div style="font-size:12px;opacity:.7">${TN_STYLES[tnStyleI(n)].n} · your record ${k[0]}-${k[1]}-${k[2]} · ${C.rp[n]||0} pts this season</div></div><button class="btn" data-rv="${esc(n)}" style="width:auto;margin:0;padding:8px 14px;${busy?'opacity:.4':''}">Challenge</button></div>`}).join('')}</div>`);
+  $('rvB').onclick=showCareer;document.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{if(!busy)rvStart(b.dataset.rv)})}
+function showInbox(){const C=crLoad();if(!C){showCareer();return}const M=rvMsgs(C).slice().reverse();
+  show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="ibB">‹</button><h2>Messages</h2></div>${M.length?M.map(m=>`<div style="background:#121a20;border-radius:12px;padding:10px;margin:8px 0;${m.r?'':'outline:1px solid #ff9a6a'}"><div style="font-size:12px;opacity:.7"><b style="color:#ff9a6a">${esc(m.f)}</b> · ${esc(m.d||'')}${m.r?'':' · NEW'}</div><div style="margin-top:4px">${esc(m.t)}</div></div>`).join(''):'<div class="gnote">No messages yet. Play an event and your rivals will have something to say.</div>'}
+  <button class="btn alt c" id="ibCh" style="margin-top:8px">Challenge a rival</button></div>`);rvMsgs(C).forEach(m=>m.r=1);crSave(C);$('ibB').onclick=showCareer;$('ibCh').onclick=showRivals}
+{const _sc=showCareer;showCareer=function(){const r=_sc.apply(this,arguments);try{const C=crLoad();const p=$('crPlay');if(C&&p&&!$('crInbox')){const un=rvMsgs(C).filter(m=>!m.r).length;
+  const E=C.cur?C.cur.ev:crEvent(C);const seed=C.season*131+C.ev*7;const rv=CR_RIVALS[seed%CR_RIVALS.length];const q=document.createElement('div');q.style.cssText='background:#1b1410;border-left:3px solid #ff9a6a;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:13px';q.innerHTML=`<b style="color:#ff9a6a">${esc(rv)}:</b> “${esc(rvFmt(rvPick(RV_PRE,seed),C,E&&E.cid))}”`;p.before(q);
+  const mk=(id,h,fn)=>{const b=document.createElement('button');b.className='btn alt';b.id=id;b.style.marginTop='8px';b.innerHTML=h;b.onclick=fn;return b};
+  const sv=store('ts.round');if(sv&&sv.r&&sv.r.rvm)p.innerHTML='Resume rival match';
+  p.after(mk('crRiv','Challenge a rival<small>18-hole head-to-head · '+crMoney(rvStake(C))+' stake</small>',showRivals));p.after(mk('crInbox',`Messages${un?` <b style="color:#ff9a6a">(${un} new)</b>`:''}<small>Notes from your rivals</small>`,showInbox))}}catch(e){console.warn(e)}return r}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
