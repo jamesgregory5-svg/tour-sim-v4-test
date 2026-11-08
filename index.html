@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.17';
+const VERSION='v4.18';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3478,6 +3478,21 @@ function showInbox(){const C=crLoad();if(!C){showCareer();return}const M=rvMsgs(
   const mk=(id,h,fn)=>{const b=document.createElement('button');b.className='btn alt';b.id=id;b.style.marginTop='8px';b.innerHTML=h;b.onclick=fn;return b};
   const sv=store('ts.round');if(sv&&sv.r&&sv.r.rvm)p.innerHTML='Resume rival match';
   p.after(mk('crRiv','Challenge a rival<small>18-hole head-to-head · '+crMoney(rvStake(C))+' stake</small>',showRivals));p.after(mk('crInbox',`Messages${un?` <b style="color:#ff9a6a">(${un} new)</b>`:''}<small>Notes from your rivals</small>`,showInbox))}}catch(e){console.warn(e)}return r}}
+
+/* v4.18: career Cart Chase sprint: offered occasionally between events (after the 3rd and 7th events of a season), 2 laps vs 3 CPU carts, small prize money */
+const RACE_AFTER={3:1,7:1};
+function crRaceOffer(C){if(!C||C.cur||!RACE_AFTER[C.ev])return null;const r=C.race;if(r&&r.s===C.season&&r.ev===C.ev)return r.done?null:r;return{s:C.season,ev:C.ev,t:(C.season*3+C.ev)%CC_TRACKS.length,done:0}}
+function crRacePays(C){const P=Math.round(CR_TIERS[C.tier].purse*.1/100)*100;return[.5,.25,.1,0].map(x=>Math.round(P*x/10)*10)}
+function crRaceStart(){const C=crLoad();const o=crRaceOffer(C);if(!o)return;C.race=o;crSave(C);G.crRace=1;const T=Object.assign({},CC_TRACKS[o.t],{laps:2});const st=ccStore();ccStart(T,CC_COLS[st.col]?st.col:'red')}
+{const _r=ccResults;ccResults=function(){const r=_r.apply(this,arguments);if(!G.crRace)return r;G.crRace=0;try{const C=crLoad();const o=C&&C.race;if(!C||!o||o.done)return r;
+  const rows=[...document.querySelectorAll('#ccRes table tr')].slice(1);const pos=Math.max(1,rows.findIndex(tr=>tr.textContent.includes('(you)'))+1);const pay=crRacePays(C)[pos-1]||0;o.done=1;o.pos=pos;o.pay=pay;C.cash+=pay;C.earn+=pay;crSave(C);
+  const h=document.querySelector('#ccRes h2');if(h)h.textContent='Career Cart Sprint · Results';const tb=document.querySelector('#ccRes table');if(tb){const d=document.createElement('div');d.style.cssText='text-align:center;font-weight:800;font-size:18px;margin:8px 0;color:'+(pay?'#3fe0b0':'#e8eef2');d.textContent=pay?`Sprint prize: +${crMoney(pay)}`:'No prize this time. Top 3 pay.';tb.before(d)}
+  for(const id of['ccAgain','ccTracks'])if($(id))$(id).style.display='none';const m=$('ccMenu');if(m){m.textContent='Back to career';const s=$('scSetup');m.onclick=()=>{s.style.zIndex='';G.cartOn=false;cancelAnimationFrame(ccRAF);ccEngineStop();if(CCR.cv)CCR.cv.style.display='none';G.last=0;showCareer()}}}catch(e){console.warn(e)}return r}}
+{const _x=ccExit;ccExit=function(){const was=G.crRace;G.crRace=0;const r=_x.apply(this,arguments);if(was)try{showCareer()}catch(e){}return r}}
+function crRaceSkip(){const C=crLoad();const o=crRaceOffer(C);if(!o)return;o.done=1;o.skip=1;C.race=o;crSave(C);showCareer()}
+{const _sc=showCareer;showCareer=function(){const out=_sc.apply(this,arguments);try{const p=$('crPlay');const C=crLoad();const o=crRaceOffer(C);if(p&&o&&!$('crRace')){const P=crRacePays(C);const T=CC_TRACKS[o.t];const d=document.createElement('div');d.id='crRace';d.style.cssText='background:linear-gradient(180deg,#12232a,#0b1518);border:1px solid #1f5a66;border-radius:12px;padding:10px;margin-top:10px';
+  d.innerHTML=`<div style="font-weight:800;color:#5fd6ff">BONUS · Cart Chase Sprint</div><div style="font-size:13px;opacity:.85;margin-top:2px">The caddies challenged you to a quick 2-lap cart race on ${esc(T.name)} before the next event. Top 3 pay: ${P.slice(0,3).map(crMoney).join(' / ')}. Optional.</div>
+  <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="crRaceGo" style="margin:0">Race</button><button class="btn alt" id="crRaceNo" style="margin:0;width:auto;padding:8px 14px">Skip</button></div>`;p.before(d);$('crRaceGo').onclick=crRaceStart;$('crRaceNo').onclick=crRaceSkip}}catch(e){console.warn(e)}return out}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}

@@ -8,3 +8,4 @@ Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off 
 - v4.15: 3 career save slots (old career migrates to slot 1; delete one to start a 4th) + player build at career creation (All-rounder/Power/Accuracy/Consistency).
 - v4.16: career money list + points list, course guide/bios, club bios in pro shop; each career slot now keeps its own bag + customization (gear already per slot).
 - v4.17: rival trash talk on the career screen, rival messages inbox, challenge-a-rival 18-hole head-to-head matches for a stake.
+- v4.18: career Cart Chase Sprint, an optional 2-lap bonus race offered after events 3 and 7 each season (top 3 win small prizes).
