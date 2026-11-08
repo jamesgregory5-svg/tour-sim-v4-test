@@ -9,3 +9,4 @@ Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off 
 - v4.16: career money list + points list, course guide/bios, club bios in pro shop; each career slot now keeps its own bag + customization (gear already per slot).
 - v4.17: rival trash talk on the career screen, rival messages inbox, challenge-a-rival 18-hole head-to-head matches for a stake.
 - v4.18: career Cart Chase Sprint, an optional 2-lap bonus race offered after events 3 and 7 each season (top 3 win small prizes).
+- v4.19: Major jacket (career locker), winner interview after wins, pre-event weather forecast (read-only, from course conditions). Fix: Course bio link sits in the next-event card.
