@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.10';
+const VERSION='v4.11';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3193,8 +3193,9 @@ function endOver(sc,par){const E=G.endless;E.on=0;const best=endBest();try{leave
   $('endAgain').onclick=startEndless;$('endMenu').onclick=showMenu}
 {const _lm=leaveToMenu;leaveToMenu=function(){if(G.endless&&G.endless.on&&!new Error().stack.includes('endOver'))G.endless.on=0;return _lm.apply(this,arguments)}}
 {const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{const m=document.querySelector('#scMenu .menu');if(m&&!$('mEnd')){const b=document.createElement('button');b.className='btn alt';b.id='mEnd';b.innerHTML=`Endless<small>Par or better on random holes · best streak ${endBest()}</small>`;b.onclick=startEndless;const after=$('mCart')||$('mPlay');after.after(b)}}catch(e){console.warn(e)}return out}}
-/* ================= v4.9: fat-shot divots + shanks ================= */
-G.divots=[];G.turf=[];let _dvH=null;
+/* ================= v4.11: fat-shot divots + shanks ================= */
+window.DV_ON=true;
+G.divots=[];G.turf=[];G.spray=[];let _dvH=null;
 function mishitKind(inp){const C=CLUBS[G.club],b=G.ball;if(!C||G.club===PUTTER||!b||Number.isFinite(inp.ft))return null;const sx=inp.sx||0,sy=inp.sy||0;
   if(!C.wood&&sx<=-.85)return'shank';if(sy<=-.78&&b.surf!==S_TEE&&b.surf!==S_GREEN)return'fat';return null}
 {const _x=executeShot;executeShot=function(inp){if(!window.DV_ON)return _x.apply(this,arguments);let k=null,bx=0,by=0,aim=G.aim||0;try{k=inp&&mishitKind(inp);bx=G.ball.x;by=G.ball.y;
@@ -3205,8 +3206,8 @@ function mishitKind(inp){const C=CLUBS[G.club],b=G.ball;if(!C||G.club===PUTTER||
    if(k||(irons&&G.ball&&G.lastSurf!==S_TEE)){/* every iron strike off turf takes a small divot; fat ones a big ugly one */}
    if(k==='fat'||(k===null&&irons&&inp&&!Number.isFinite(inp.ft)&&(inp.sy||0)<-.2)){if(_dvH!==G.H){_dvH=G.H;G.divots=[]}const big=k==='fat';
      G.divots.push({x:bx-Math.cos(aim)*.15,y:by-Math.sin(aim)*.15,a:aim,l:big?.55:.3,w:big?.2:.11});
-     const n=big?14:6;for(let i=0;i<n;i++)G.turf.push({x:bx,y:by,z:0,vx:Math.cos(aim+(Math.random()-.5)*.6)*(2+Math.random()*3),vy:Math.sin(aim+(Math.random()-.5)*.6)*(2+Math.random()*3),vz:2+Math.random()*3,t:0,s:big?1:.6})
-     if(big)toast('Fat!','Took a big divot · lost distance',1800)}
+     const n=big?14:6;for(let i=0;i<n;i++)G.turf.push({x:bx,y:by,z:0,vx:Math.cos(aim+(Math.random()-.5)*.6)*(2+Math.random()*3),vy:Math.sin(aim+(Math.random()-.5)*.6)*(2+Math.random()*3),vz:3.5+Math.random()*4,t:0,s:big?1:.6,r:Math.random()*6})
+     if(big){toast('Fat!','Took a big divot · lost distance',1800);let sp=project(bx,by,G.H.hAt(bx,by));if(!sp||sp[0]<0||sp[0]>innerWidth||sp[1]<0||sp[1]>innerHeight)sp=[innerWidth/2,innerHeight*.8];{for(let i=0;i<22;i++)G.spray.push({x:sp[0]+(Math.random()-.5)*20,y:sp[1],vx:(Math.random()-.5)*260,vy:-(260+Math.random()*320),t:0,r:Math.random()*6,s:5+Math.random()*8})}}}
    if(k==='shank'){toast('SHANK!','Off the hosel',1800);const cv=G.R&&G.R.cv||document.querySelector('canvas');if(cv&&cv.animate)cv.animate([{transform:'translate(0,0)'},{transform:'translate(-7px,3px)'},{transform:'translate(6px,-3px)'},{transform:'translate(-3px,2px)'},{transform:'translate(0,0)'}],{duration:320})}}catch(e){}
   return out}}
 let _dvC=null,_dvT=performance.now();
@@ -3215,8 +3216,9 @@ function dvDraw(now){requestAnimationFrame(dvDraw);if(!window.DV_ON)return;try{c
   if(!H||_dvH!==H||G.phase==='intro'||G.mode==='range'){if(_dvH!==H){G.divots=[];G.turf=[]}return}
   for(const d of G.divots){const ca=Math.cos(d.a),sa=Math.sin(d.a);const pts=[];for(let i=0;i<12;i++){const t=i/12*Math.PI*2;const u=Math.cos(t)*d.l*.5,v=Math.sin(t)*d.w*.5;const wx=d.x+u*ca-v*sa,wy=d.y+u*sa+v*ca;const p=project(wx,wy,H.hAt(wx,wy)+.005);if(!p){pts.length=0;break}pts.push(p)}
     if(pts.length){x.fillStyle='rgba(78,56,32,.85)';x.beginPath();pts.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.closePath();x.fill();x.strokeStyle='rgba(40,70,25,.7)';x.lineWidth=1;x.stroke()}}
+  G.spray=G.spray.filter(q=>q.t<1.1);for(const q of G.spray){q.t+=dt;q.vy+=900*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.r+=dt*10;x.save();x.globalAlpha=Math.min(1,(1.1-q.t)*3);x.translate(q.x,q.y);x.rotate(q.r);x.fillStyle='rgba(84,60,34,.95)';x.fillRect(-q.s/2,-q.s/4,q.s,q.s/2);x.fillStyle='rgba(76,112,44,.95)';x.fillRect(-q.s/2,-q.s/4,q.s,q.s/5);x.restore()}
   G.turf=G.turf.filter(t=>t.t<1.6);for(const t of G.turf){t.t+=dt;t.vz-=9.8*YD*dt;t.x+=t.vx*dt;t.y+=t.vy*dt;t.z=Math.max(0,t.z+t.vz*dt);if(t.z===0){t.vx*=.8;t.vy*=.8}
-    const p=project(t.x,t.y,H.hAt(t.x,t.y)+t.z+.02);if(p){const r=Math.max(1.5,4*t.s);x.fillStyle=t.s>.8?'rgba(70,95,40,.95)':'rgba(90,120,50,.9)';x.fillRect(p[0]-r/2,p[1]-r/3,r,r*.66)}}}catch(e){}}
+    const gz=H.hAt(t.x,t.y)+t.z+.02;const p=project(t.x,t.y,gz),p2=project(t.x+.12,t.y,gz);if(p){const r=clamp(p2?Math.hypot(p2[0]-p[0],p2[1]-p[1])*1.6:4,2.5,14)*t.s;t.r+=dt*9;x.save();x.translate(p[0],p[1]);x.rotate(t.r);x.fillStyle='rgba(84,60,34,.95)';x.fillRect(-r/2,-r/4,r,r/2);x.fillStyle='rgba(76,112,44,.95)';x.fillRect(-r/2,-r/4,r,r/5);x.restore()}}}catch(e){}}
 requestAnimationFrame(dvDraw);
 
 (function(){/**
