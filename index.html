@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.15';
+const VERSION='v4.16';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3399,6 +3399,47 @@ function crBldInject(){const go=$('crGo');if(!go||$('crBld'))return;const box=do
 {const _sm=showMenu;showMenu=function(){const r=_sm.apply(this,arguments);try{const b=$('mCareer');if(b){b.onclick=showSlots;const n=[0,1,2].filter(i=>crSlot(i)).length;if(n>1)b.querySelector('small')&&(b.querySelector('small').textContent+=` · ${n} saves`)}}catch(e){}return r}}
 {const _sc=showCareer;showCareer=function(){const r=_sc.apply(this,arguments);try{const C=crLoad();const B=$('crB');if(C&&B&&$('crScr')){B.onclick=showSlots;const d=$('crDel');if(d){d.textContent='Delete this career (slot '+(crAct()+1)+')';d.onclick=()=>{if(confirm('Delete this career? This cannot be undone. Trophies stay on the shelf.')){crDelSlot(crAct());showSlots()}}}
   const h=document.querySelector('#crScr .gnote');if(h)h.innerHTML+=` · build <b>${CR_BUILDS[crBuild()].n}</b>`}}catch(e){}return r}}
+
+/* v4.16: career money list + points list, course bios (career course guide + next-event link), club bios in the pro shop */
+const CBIO={lookaway:'Your home course: a modern private club in Bucks County with wide fairways and slick greens.',pinevalley:'Built through sandy pine barrens in the 1910s, famous for islands of fairway surrounded by waste sand. Many call it the hardest course anywhere.',
+augusta:'Home of the year\'s first major each April. Rolling hills, towering pines and lightning-fast greens, with Amen Corner at its heart.',cypress:'A dream on the Monterey Peninsula: forest, dunes, then cliffs. The par-3 16th over the ocean is one of the most photographed holes in golf.',
+shinnecock:'A windswept links-style test on Long Island and one of America\'s oldest clubs; a regular U.S. Open host.',oakmont:'Brutal, fast and unforgiving, with the famous Church Pews bunker. A record U.S. Open host near Pittsburgh.',
+merion:'A compact classic outside Philadelphia, known for its wicker-basket flagsticks and short but sharp holes.',ngla:'C.B. Macdonald\'s tribute to the great holes of Scotland, set on the bay at Southampton.',
+sandhills:'Minimalist golf in the Nebraska Sandhills, routed through natural dunes with very little earth moved.',pebble:'Cliffside holes along Carmel Bay make this public links a bucket-list round and a frequent U.S. Open venue.',
+fishers:'A Seth Raynor gem on a small island off Connecticut, with the ocean in view on almost every hole.',chicago:'One of the first 18-hole courses in America, with Macdonald and Raynor template holes and deep bunkers.',
+seminole:'A Donald Ross seaside course in Florida, shaped by ocean wind and white sand.',wingedfoot:'A Tillinghast brute in Westchester with deep greenside bunkers and tough greens; a famous U.S. Open host.',
+friars:'A modern links on Long Island Sound, winding from farmland into big sand dunes.',crystal:'A hidden Northern Michigan classic by Alister MacKenzie, with wild, tilted greens.',
+lacc:'A George Thomas design in the middle of Los Angeles with barrancas and sandy waste areas.',tcc:'One of America\'s founding clubs, outside Boston, with rocky outcrops and history going back to 1913.',
+riviera:'Hogan\'s Alley in Los Angeles: kikuyu grass, barrancas and the tiny par-4 10th.',muirfieldv:'The course Jack built in Ohio, a regular tour stop with water in play down the stretch.',
+oaklandhills:'"The Monster" outside Detroit, with big rolling greens and tight driving lines.',oakhill:'A tree-lined Rochester classic that has hosted majors across many decades.',
+peachtree:'A quiet Atlanta classic co-designed by Bobby Jones, with big rolling greens.',pacificdunes:'A cliff-top links on the Oregon coast at Bandon, full of gorse, wind and ocean views.',
+shadowcreek:'A man-made desert oasis outside Las Vegas, with a pine forest, creeks and waterfalls.',prairie:'Kansas links golf: rolling dunes, yucca and plum thickets, and constant wind.',
+sawgrass:'Home of the island-green 17th and a yearly tour stop in Ponte Vedra, Florida.',standrews:'The home of golf. Huge double greens, hidden pot bunkers and the Road Hole.',
+bethpage:'A public muni with a warning sign at the first tee: the Black Course is extremely difficult.',fiveponds:'A friendly public course in Bucks County with water in play on several holes.'};
+function cBio(cid){const c=CID[cid];if(!c)return'';const yd=c.tees[0].y.reduce((a,b)=>a+b,0),par=c.par.reduce((a,b)=>a+b,0);const sig=Object.entries(c.sig||{}).slice(0,3).map(([h,t])=>`<li>Hole ${h}: ${esc(t)}</li>`).join('');
+  return `<div style="background:#121a20;border-radius:12px;padding:10px;margin:8px 0"><div style="font-weight:800">${esc(c.name)}</div><div style="opacity:.7;font-size:12px">${esc(c.loc||'')} · ${esc(c.style||'')} · par ${par} · ${yd.toLocaleString()} yds (${esc(c.tees[0].n)})${c.rank?' · ranked No. '+c.rank:''}</div><div style="font-size:13px;margin-top:6px">${esc(CBIO[cid]||'A classic test of golf.')}</div>${sig?`<ul style="font-size:12px;opacity:.85;margin:6px 0 0 18px;padding:0">${sig}</ul>`:''}</div>`}
+function showCourseGuide(back,only){const C=crLoad();const ids=only?[only]:CR_COURSES.slice(0,(C?C.maxT:0)+1).flat();
+  show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="cgB">‹</button><h2>${only?'Course bio':'Course guide'}</h2></div>${only?'':'<div class="gnote">Courses unlocked on your career tour. Layouts are approximate.</div>'}${ids.map(cBio).join('')}</div>`);$('cgB').onclick=back||showCareer}
+/* standings: points = career ranking points this season; money = season earnings (CPU money estimated from their points at your tier's purse rate) */
+function crLists(C){const L=crRank(C);const sres=C.res.filter(x=>x.s===C.season);const myM=sres.reduce((a,x)=>a+(x.pay||0),0);const myP=C.spts||0;const rate=myP>0&&myM>0?myM/myP:CR_TIERS[C.tier].purse/400;
+  const M=L.map(x=>({n:x.n,me:x.me,rv:x.rv,m:x.me?myM:Math.round(x.p*rate*(.85+.3*((tnRng((x.n.length*977+C.season*31)>>>0))()))/100)*100}));M.sort((a,b)=>b.m-a.m);M.forEach((x,i)=>x.pos=i+1);return{L,M}}
+function showLists(tab){const C=crLoad();if(!C){showCareer();return}tab=tab||'pts';const {L,M}=crLists(C);const rows=tab==='pts'?L.map(x=>[x.pos,x,x.p+' pts']):M.map(x=>[x.pos,x,crMoney(x.m)]);
+  show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="lsB">‹</button><h2>Season ${C.season} standings</h2></div>
+  <div class="seg" id="lsT"><button data-t="pts" class="${tab==='pts'?'sel':''}">Points list</button><button data-t="money" class="${tab==='money'?'sel':''}">Money list</button></div>
+  <div class="gnote" style="margin-top:6px">${tab==='pts'?'Ranking points earned in this season\'s events. Top 10 finishes score points; '+CR_PROMO+' tier points earn promotion.':'Prize money won this season. Career earnings: <b>'+crMoney(C.earn)+'</b>.'}</div>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:6px">${rows.map(([p,x,v])=>`<tr style="${x.me?'color:#3fe0b0;font-weight:800;background:rgba(63,224,176,.1)':''}"><td style="width:34px;padding:4px">${p}</td><td>${esc(x.n)}${x.me?' (you)':x.rv?' <small style="color:#ff9a6a">RIVAL</small>':''}</td><td style="text-align:right;padding:4px">${v}</td></tr>`).join('')}</table></div>`);
+  $('lsB').onclick=showCareer;$('lsT').onclick=e=>{const b=e.target.closest('button');if(b)showLists(b.dataset.t)}}
+{const _sc=showCareer;showCareer=function(){const r=_sc.apply(this,arguments);try{const C=crLoad();const p=$('crPlay');if(C&&p&&!$('crLists')){const mk=(id,h,fn)=>{const b=document.createElement('button');b.className='btn alt';b.id=id;b.style.marginTop='8px';b.innerHTML=h;b.onclick=fn;return b};
+  const tro=$('crTro');const host=tro||p;host.before(mk('crLists','Money list &amp; points list<small>Season standings: prize money and ranking points</small>',()=>showLists('pts')));host.before(mk('crGuide','Course guide<small>Bios of every course on your tour</small>',()=>showCourseGuide()));
+  const E=C.cur?C.cur.ev:crEvent(C);const card=p.previousElementSibling;if(card&&E&&E.cid){const a=document.createElement('a');a.href='#';a.textContent='Course bio ›';a.style.cssText='display:inline-block;margin-top:4px;font-size:12px;color:#3fe0b0';a.onclick=e=>{e.preventDefault();showCourseGuide(showCareer,E.cid)};card.appendChild(a)}}}catch(e){console.warn(e)}return r}}
+/* club bios in the pro shop */
+const BRAND_BIO={'Kobra':'Loud colours, louder ball speed.','Taylor Fade':'Tour-proven tech with a confident fade bias.','Calloway':'Forgiving heads that keep mishits in play.','Pong':'Famously stable, built by engineers who love a fitting cart.','Titlist':'The tour\'s favourite. Precise, pricey, proven.','Mizuna':'Forged in Japan for buttery feel and pinpoint control.','Sriksun':'Quiet overachiever with a soft, powerful strike.','Cleavland':'The wedge guys. Grooves that grab.','Odyssee':'The most-used putter insert on tour.','Scotty Cameroon':'Hand-milled collector putters. Tour-bag royalty.'};
+function clubBio(x){if(x.s==='t')return'Cosmetic trail: no stats, all style.';const st=x.pow>=x.acc&&x.pow>=x.con?'Built for distance':x.acc>=x.con?'Built for accuracy':'Built for consistency';return `${BRAND_BIO[x.b]||''} ${st}${x.p>=150000?', with tour-level specs':x.p<=10000?', a solid starter':''}.`}
+{const _ss=showShop;showShop=function(){const r=_ss.apply(this,arguments);try{const g=document.querySelector('#shopScr > div[style*="display:grid"]');if(g)for(const card of g.children){const t=card.textContent;const x=SHOP.find(i=>t.includes(i.n));if(x&&!card.querySelector('.cbio')){const d=document.createElement('div');d.className='cbio';d.style.cssText='font-size:12px;font-style:italic;opacity:.75;margin-top:5px';d.textContent=clubBio(x);card.appendChild(d)}}}catch(e){}return r}}
+/* per-slot bag + customization (pro-shop gear already lives in each career). Stash on switch, restore the new slot's copy (a slot with no copy yet keeps the current one) */
+{const _st=crStash;crStash=function(){_st();try{const k=crSlotKey(crAct()),s=store(k);if(s&&s.C){s.bag=store('ts.bag');s.cust=store('ts.cust');store(k,s)}}catch(e){}}}
+{const _u=crUse;crUse=function(i){_u(i);try{const s=crSlot(i);if(s){if(s.bag!==undefined)store('ts.bag',s.bag);if(s.cust!==undefined)store('ts.cust',s.cust);G.cust=null}}catch(e){}}}
+{const _cs=crSave;crSave=function(C){const k=crSlotKey(crAct()),o=store(k);_cs(C);try{const s=store(k);if(s&&o){if(o.bag!==undefined)s.bag=o.bag;if(o.cust!==undefined)s.cust=o.cust;store(k,s)}}catch(e){}}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}

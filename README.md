@@ -6,3 +6,4 @@ Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off 
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
 - v4.14: PICK UP and SKIP buttons in regular solo rounds (never career), About screen on the main menu.
 - v4.15: 3 career save slots (old career migrates to slot 1; delete one to start a 4th) + player build at career creation (All-rounder/Power/Accuracy/Consistency).
+- v4.16: career money list + points list, course guide/bios, club bios in pro shop; each career slot now keeps its own bag + customization (gear already per slot).
