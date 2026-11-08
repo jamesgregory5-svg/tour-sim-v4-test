@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.9';
+const VERSION='v4.9.1';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3225,7 +3225,7 @@ const t="160",e={LEFT:0,MIDDLE:1,RIGHT:2,ROTATE:0,DOLLY:1,PAN:2},n={ROTATE:0,PAN
 (function(){if(typeof THREE==='undefined')return;const T=THREE;
 const M=(c,r=.8,o={})=>new T.MeshStandardMaterial({color:c,roughness:r,...o});
 const mesh=(g,m,p=[0,0,0],s=[1,1,1],rot=[0,0,0])=>{const x=new T.Mesh(g,m);x.position.set(...p);x.scale.set(...s);x.rotation.set(...rot);x.castShadow=true;x.receiveShadow=true;return x};
-const S=(n=32)=>new T.SphereGeometry(1,n,n/2|0);
+const S=(n=14)=>new T.SphereGeometry(1,n,n/2|0);
 // tapered body along x from a radius profile (lathe around x)
 function body(prof,mat,flat=1){const pts=prof.map(([x,r])=>new T.Vector2(Math.max(r,0.0001),x));const g=new T.LatheGeometry(pts,40);g.rotateZ(-Math.PI/2);const m=mesh(g,mat);m.scale.set(1,1,1);m.scale.y=flat;return m}
 /* ---------- BIRD (gull in flight) ---------- */
@@ -3257,9 +3257,9 @@ function squirrel(){const G=new T.Group();const fur=M(0x7d7266,.95),furD=M(0x5e5
  const cv=new T.CatmullRomCurve3([new T.Vector3(-.15,.12,0),new T.Vector3(-.3,.2,0),new T.Vector3(-.48,.5,0),new T.Vector3(-.36,.82,0),new T.Vector3(-.5,1.08,0)]);
  const furL=M(0xa89c8e,1),furT=M(0xd9d0c3,1);
  const Wt=t=>.07+.11*Math.pow(Math.sin(Math.PI*Math.min(1,t*1.05+.06)),.8);
- for(let i=0;i<=140;i++){const t=i/140;const p=cv.getPoint(t);const W=Wt(t);G.add(mesh(S(24),t>.86?furT:fur,[p.x,p.y,0],[W,W,W*.78]))}
- for(let i=0;i<=60;i++){const t=.12+.84*i/60;const p=cv.getPoint(t),tg=cv.getTangent(t);const n=new T.Vector3(-tg.y,tg.x,0);const W=Wt(t);
-   for(const sd of[-1,1]){const q=p.clone().addScaledVector(n,sd*W*.4);G.add(mesh(S(16),t>.8?furT:furL,[q.x,q.y,0],[W*.6,W*.6,W*.5]))}}
+ for(let i=0;i<=36;i++){const t=i/36;const p=cv.getPoint(t);const W=Wt(t);G.add(mesh(S(12),t>.86?furT:fur,[p.x,p.y,0],[W,W,W*.78]))}
+ for(let i=0;i<=14;i++){const t=.12+.84*i/14;const p=cv.getPoint(t),tg=cv.getTangent(t);const n=new T.Vector3(-tg.y,tg.x,0);const W=Wt(t);
+   for(const sd of[-1,1]){const q=p.clone().addScaledVector(n,sd*W*.4);G.add(mesh(S(10),t>.8?furT:furL,[q.x,q.y,0],[W*.6,W*.6,W*.5]))}}
 
  return G}
 /* ---------- GATOR ---------- */
@@ -3312,15 +3312,16 @@ function init(){cv=document.createElement('canvas');cv.id='wlC';cv.style.cssText
  for(const o of[...GF,SQ,GA])o.traverse(m=>{m.castShadow=m.receiveShadow=false;m.frustumCulled=false})}
 const FL=['seminole','sawgrass'];
 function wrap(o,s){const g=new T.Group();const inner=o.clone();inner.rotation.x=Math.PI/2;g.add(inner);g.scale.setScalar(s);scene.add(g);return g}
-function spawn(H){for(const a of list)scene.remove(a.g);list=[];if(!H)return;const cid=G.round&&G.round.cid||'';const RR=RNG('wl'+cid+(G.round?G.round.i:0)+Date.now());
- const tx=(H.tee&&H.tee.x)||G.ball.x,ty=(H.tee&&H.tee.y)||G.ball.y,cx=H.cup.x,cy=H.cup.y;
- const ng=1+Math.floor(RR()*3);for(let i=0;i<ng;i++){const f=.15+RR()*.6;const g=new T.Group();g.rotation.x=0;const frames=GF.map(o=>{const c=o.clone();c.rotation.x=Math.PI/2;c.visible=false;g.add(c);return c});g.scale.setScalar(.9);scene.add(g);
-   list.push({k:'gull',g,frames,cx:tx+(cx-tx)*f+RR.range(-25,25),cy:ty+(cy-ty)*f+RR.range(-25,25),r:RR.range(18,40),h:RR.range(16,30),w:RR.range(.12,.22)*(RR()<.5?-1:1),p:RR()*6.28,fp:RR(),glide:0})}
- const tr=(H.trees||[]).filter(t=>!t.gone&&Math.hypot(t.x-tx,t.y-ty)<90&&Math.hypot(t.x-tx,t.y-ty)>8);
- const ns=tr.length?(RR()<.7?1:2):0;for(let i=0;i<ns;i++){const t=tr[Math.floor(RR()*tr.length)];const a=RR()*6.28,d=(t.w||4)*.5+RR.range(.6,2);const x=t.x+Math.cos(a)*d,y=t.y+Math.sin(a)*d;if(H.surfAt(x,y)===S_WATER)continue;const g=wrap(SQ,.32);g.rotation.z=RR()*6.28;list.push({k:'sq',g,x,y,hop:0,nt:RR.range(1,4),a:g.rotation.z})}
- if(FL.includes(cid)){let best=null;for(let k=0;k<400&&!best;k++){const f=RR();const x=tx+(cx-tx)*f+RR.range(-60,60),y=ty+(cy-ty)*f+RR.range(-60,60);if(H.surfAt(x,y)!==S_WATER)continue;
-   for(let a=0;a<16;a++){const ex=x+Math.cos(a/16*6.28)*4,ey=y+Math.sin(a/16*6.28)*4;const s=H.surfAt(ex,ey);if(s===S_ROUGH||s===S_OB){best={x:(x+ex)/2+Math.cos(a/16*6.28)*1.5,y:(y+ey)/2+Math.sin(a/16*6.28)*1.5,a:a/16*6.28};break}}}
-   if(best){const g=wrap(GA,1.05);g.rotation.z=best.a+Math.PI;list.push({k:'ga',g,x:best.x,y:best.y,t:0})}}}
+function spawn(H){for(const a of list)scene.remove(a.g);list=[];if(!H||!G.ball)return;const cid=G.round&&G.round.cid||'';const RR=RNG('wl'+cid+(G.round?G.round.i:0)+Date.now());
+ const bx=G.ball.x,by=G.ball.y,A=Math.atan2(H.cup.y-by,H.cup.x-bx),D=Math.hypot(H.cup.x-bx,H.cup.y-by);const fwd=(d,s)=>[bx+Math.cos(A)*d-Math.sin(A)*s,by+Math.sin(A)*d+Math.cos(A)*s];
+ const inCone=(x,y,d0,d1,deg)=>{const dx=x-bx,dy=y-by,d=Math.hypot(dx,dy);if(d<d0||d>d1)return false;let da=Math.atan2(dy,dx)-A;while(da>Math.PI)da-=6.283;while(da<-Math.PI)da+=6.283;return Math.abs(da)<deg*Math.PI/180};
+ const ng=2+Math.floor(RR()*2);for(let i=0;i<ng;i++){const [cx,cy]=fwd(Math.min(D*.6,RR.range(45,90)),RR.range(-18,18));const g=new T.Group();const frames=GF.map(o=>{const c=o.clone();c.rotation.x=Math.PI/2;c.visible=false;g.add(c);return c});g.scale.setScalar(2.6);scene.add(g);
+   list.push({k:'gull',g,frames,cx,cy,r:RR.range(8,16),h:RR.range(10,18),w:RR.range(.15,.25)*(RR()<.5?-1:1),p:RR()*6.28,fp:RR(),glide:0})}
+ const tr=(H.trees||[]).filter(t=>!t.gone&&inCone(t.x,t.y,25,110,22));
+ const ns=tr.length?(RR()<.6?1:2):0;for(let i=0;i<ns;i++){const t=tr[Math.floor(RR()*tr.length)];const a=A+Math.PI+RR.range(-1,1),d=(t.w||4)*.5+RR.range(.8,2);const x=t.x+Math.cos(a)*d,y=t.y+Math.sin(a)*d;if(H.surfAt(x,y)===S_WATER)continue;const g=wrap(SQ,1.1);list.push({k:'sq',g,x,y,hop:0,nt:RR.range(1,4),a:A+Math.PI/2})}
+ if(FL.includes(cid)){let best=null;for(let k=0;k<600&&!best;k++){const [x,y]=fwd(RR.range(30,Math.min(160,D)),RR.range(-50,50));if(H.surfAt(x,y)!==S_WATER)continue;
+   for(let a=0;a<16;a++){const ex=x+Math.cos(a/16*6.28)*4,ey=y+Math.sin(a/16*6.28)*4;const s=H.surfAt(ex,ey);if(s!==S_WATER&&s!==S_DEEP){best={x:(x+ex)/2,y:(y+ey)/2,a:a/16*6.28};break}}}
+   if(best){const g=wrap(GA,2.4);list.push({k:'ga',g,x:best.x,y:best.y,a:best.a+Math.PI,t:0})}}}
 let last=performance.now();
 function loop(now){requestAnimationFrame(loop);try{const dt=Math.min(.05,(now-last)/1000);last=now;const H=G.H;const on=H&&G.R&&G.R.lastVP&&G.mode!=='range'&&G.phase!=='intro'&&!$('ccv')?.offsetParent&&$('hud')&&$('hud').classList.contains('on');
   if(!R){if(!on)return;init()}
@@ -3334,9 +3335,9 @@ function loop(now){requestAnimationFrame(loop);try{const dt=Math.min(.05,(now-la
      const fi=Math.floor(a.fp*12)%12;a.frames.forEach((f,i)=>f.visible=i===fi)}
    else if(a.k==='sq'){a.nt-=dt;if(a.nt<=0&&a.hop<=0){a.hop=.35;a.a+=(Math.random()-.5)*1.6;a.nt=1.5+Math.random()*4}let hz=0;if(a.hop>0){a.hop-=dt;const f=1-a.hop/.35;hz=Math.sin(f*Math.PI)*.25;a.x+=Math.cos(a.a)*dt*2.2;a.y+=Math.sin(a.a)*dt*2.2}
      a.g.position.set(a.x,a.y,H.hAt(a.x,a.y)+hz);a.g.rotation.z=a.a}
-   else if(a.k==='ga'){a.t+=dt;a.g.position.set(a.x,a.y,H.hAt(a.x,a.y)-.05)}}
-  R.render(scene,cam)}catch(e){}}
-requestAnimationFrame(loop);window.WLtest=()=>{const b=G.ball,a=G.aim,H=G.H;for(const o of list){if(o.k==='gull'){o.cx=b.x+Math.cos(a)*22;o.cy=b.y+Math.sin(a)*22;o.r=6;o.h=5}if(o.k==='sq'){o.x=b.x+Math.cos(a)*6+Math.sin(a)*1.5;o.y=b.y+Math.sin(a)*6-Math.cos(a)*1.5}if(o.k==='ga'){o.x=b.x+Math.cos(a)*12-Math.sin(a)*3;o.y=b.y+Math.sin(a)*12+Math.cos(a)*3}}};window.WLdbg=()=>({tri:R&&R.info.render.triangles,calls:R&&R.info.render.calls,vp:Array.from(G.R.lastVP).map(v=>+v.toFixed(3)),p:list[0]&&project(...list[0].g.position.toArray()),size:[cv.width,cv.height,cv.style.display]});window.WL=()=>list.map(a=>a.k+':'+a.g.position.toArray().map(v=>v.toFixed(0)).join(','));
+   else if(a.k==='ga'){a.t+=dt;a.g.position.set(a.x,a.y,H.hAt(a.x,a.y)-.05);a.g.rotation.z=a.a}}
+  R.render(scene,cam)}catch(e){window.WLerr=String(e&&e.stack||e).slice(0,300)}}
+requestAnimationFrame(loop);window.WLtest=()=>{const b=G.ball,a=G.aim,H=G.H;for(const o of list){if(o.k==='gull'){o.cx=b.x+Math.cos(a)*22;o.cy=b.y+Math.sin(a)*22;o.r=6;o.h=5}if(o.k==='sq'){o.x=b.x+Math.cos(a)*6+Math.sin(a)*1.5;o.y=b.y+Math.sin(a)*6-Math.cos(a)*1.5}if(o.k==='ga'){o.x=b.x+Math.cos(a)*12-Math.sin(a)*3;o.y=b.y+Math.sin(a)*12+Math.cos(a)*3}}};window.WLdbg=()=>({tri:R&&R.info.render.triangles,calls:R&&R.info.render.calls,vp:Array.from(G.R.lastVP).map(v=>+v.toFixed(3)),p:list[0]&&project(...list[0].g.position.toArray()),size:[cv.width,cv.height,cv.style.display],err:window.WLerr});window.WL=()=>list.map(a=>a.k+':'+a.g.position.toArray().map(v=>v.toFixed(0)).join(','));
 })();
 
 </script>
