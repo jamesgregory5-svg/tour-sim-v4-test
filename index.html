@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.40';
+const VERSION='v4.41';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -4090,9 +4090,10 @@ function showChat(rv){const C=crLoad();if(!C||!CR_RIVALS.includes(rv)){showInbox
   $('chRiv').onclick=()=>{const sv=store('ts.round');if(sv&&sv.r&&sv.r.car){toast('Finish your round','Challenge after the event',2200);return}rvStart(rv)}}
 {const _sr=showRivals;showRivals=function(){const r=_sr.apply(this,arguments);try{document.querySelectorAll('[data-rv]').forEach(b=>{const n=b.dataset.rv;if(!n||b.dataset.chat)return;const c=document.createElement('button');c.className='btn alt';c.dataset.chat='1';c.textContent='Message';c.style.cssText='width:auto;margin:0 0 0 6px;padding:8px 12px';c.onclick=e=>{e.stopPropagation();showChat(n)};b.before(c)})}catch(e){}return r}}
 
-/* v4.40: Bird Hunt — 60s driving-range mini-game. Hit gulls for points; gory blood spray/fall/splat. Fixed cam, fading shot trails, "KILL THEM ALL" sign. */
+/* v4.41: Bird Hunt — rapid-fire multi-ball. 60s range, hit gulls, gore, fixed cam, fading trails, KILL THEM ALL sign. */
 const BH_DENS={few:8,some:18,lots:36,swarm:64};
 const BH_DEN_N={few:'Few',some:'Some',lots:'Lots',swarm:'Swarm'};
+const BH_MAX_BALLS=12,BH_REARM=.3,BH_TRAIL_FADE=3.2;
 function bhStore(){const v=store('ts.birdhunt');return Object.assign({best:0,den:'some'},v&&typeof v==='object'?v:{})}
 function bhSave(o){store('ts.birdhunt',o)}
 function bhCam(){const H=G.H;const z=H?H.hAt(0,-8):0;return{eye:v3(0,-28,z+14),at:v3(0,140,z+4),fov:.78}}
@@ -4111,7 +4112,6 @@ function bhSignEl(){let el=$('bhSign');if(el)return el;
 #bhHUD b{color:#ff5a4a;font-size:28px}
 #bhBlood{position:fixed;inset:0;pointer-events:none;z-index:4}`;
   document.head.appendChild(st);
-  // SVG filter for drip look
   if(!$('bhSVG')){const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.id='bhSVG';s.style.cssText='position:absolute;width:0;height:0';s.innerHTML='<filter id="bhBleed"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2"/></filter>';document.body.appendChild(s)}
   document.body.appendChild(el);return el}
 function bhProject(x,y,z){try{const VP=G.R.lastVP;if(!VP)return null;const X=VP[0]*x+VP[4]*y+VP[8]*z+VP[12],Y=VP[1]*x+VP[5]*y+VP[9]*z+VP[13],W=VP[3]*x+VP[7]*y+VP[11]*z+VP[15];
@@ -4129,37 +4129,53 @@ function bhBloodBurst(wx,wy,wz){const p0=bhProject(wx,wy,wz)||[innerWidth/2,inne
 function bhSplat(wx,wy){const H=G.H;if(!H)return;G.bhSplats=(G.bhSplats||[]);G.bhSplats.push({x:wx,y:wy,z:H.hAt(wx,wy)+.02,t:performance.now()/1000,r:1.2+Math.random()*1.4});if(G.bhSplats.length>40)G.bhSplats.shift()}
 function bhHUD(){let el=$('bhHUD');if(!el){el=document.createElement('div');el.id='bhHUD';document.body.appendChild(el)}
   const B=G.bh;if(!B||!B.on){el.style.display='none';return}el.style.display='';
-  const left=Math.max(0,Math.ceil(B.tLeft));el.innerHTML=`BIRD HUNT · <b>${B.score}</b> hits<br><span style="font-size:14px;opacity:.85">${left}s · best ${bhStore().best} · ${BH_DEN_N[B.den]||B.den}</span>`}
+  const left=Math.max(0,Math.ceil(B.tLeft));el.innerHTML=`BIRD HUNT · <b>${B.score}</b> hits<br><span style="font-size:14px;opacity:.85">${left}s · best ${bhStore().best} · ${BH_DEN_N[B.den]||B.den} · rapid fire</span>`}
 function showBirdHunt(){const st=bhStore();let den=st.den||'some';
   const dens=Object.keys(BH_DENS).map(k=>`<button data-d="${k}" class="${k===den?'sel':''}" style="flex:1">${BH_DEN_N[k]}</button>`).join('');
   show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="bhB">‹</button><h2>Bird Hunt</h2></div>
-  <div class="gnote">60 seconds on the driving range. Birds everywhere — hit one for a point. Fixed camera, ball trails fade. Best score saved.</div>
+  <div class="gnote">60 seconds on the driving range. Rapid-fire shots — keep swinging while balls are still flying. Hit a bird for a point. Fixed camera, trails fade. Best score saved.</div>
   <div class="sec">Birds on screen</div><div class="seg" id="bhDen" style="flex-wrap:wrap">${dens}</div>
   <div class="gnote" style="margin-top:6px">Best: <b>${st.best||0}</b> hits</div>
   <button class="btn" id="bhGo" style="margin-top:14px">Start 60s hunt</button></div>`);
   $('bhB').onclick=showMenu;
   $('bhDen').onclick=e=>{const b=e.target.closest('button');if(!b)return;den=b.dataset.d;st.den=den;bhSave(st);[...$('bhDen').children].forEach(x=>x.classList.toggle('sel',x.dataset.d===den))};
   $('bhGo').onclick=()=>startBirdHunt(den)}
+function bhPushBall(anim){const B=G.bh;if(!B||!anim||!anim.P)return null;
+  const b={anim,t:anim.t||0,done:0,t0:performance.now()/1000,tDone:0,owned:0};
+  B.balls.push(b);while(B.balls.length>BH_MAX_BALLS)B.balls.shift();return b}
+function bhRearm(){const B=G.bh;if(!B||!B.on)return;
+  // Detach current flight anim so main loop no longer owns it; bhLoop keeps ticking it
+  if(G.anim&&G.phase==='flight'){const cur=B.balls.find(x=>x.anim===G.anim&&!x.owned);if(cur){cur.t=G.anim.t;cur.owned=1}}
+  else if(G.anim&&G.phase==='rest'){const cur=B.balls.find(x=>x.anim===G.anim);if(cur){cur.t=G.anim.t;cur.done=1;cur.tDone=cur.tDone||performance.now()/1000;cur.owned=1}}
+  B.rearmAt=0;B.pending=null;
+  G.sw=null;G.phase='address';G.anim=null;
+  G.ball={x:0,y:0,surf:S_TEE};G.cam=bhCam();G.camBl=null;G.camYaw=null;G.camMode=null;
+  try{setAddress();G.aim=Math.PI/2;G.club=Math.min(G.club,6);updClubs();updHUD();bhHUD()}catch(e){console.warn(e)}}
 function startBirdHunt(den){den=den||bhStore().den||'some';
   const st=bhStore();st.den=den;bhSave(st);
   const H=startMode('birdhunt',RANGE_C,rangeGeo(),{flags:null});
   G.flags=RANGE_FLAGS.map(([x,y],i)=>({x,y,col:[[.9,.15,.1],[1,.8,.1],[.15,.5,.95],[.95,.95,.95],[.9,.15,.1],[1,.8,.1]][i]}));
   G.cupOn=false;G.target={x:0,y:160};G.wind={x:0,y:0,mph:0,a:0};G.allowed=null;G.labels=null;G.ballOn=true;
-  G.bh={on:1,score:0,den,tLeft:60,t0:performance.now()/1000,trails:[],splats:[]};G.bhSplats=[];
+  G.bh={on:1,score:0,den,tLeft:60,t0:performance.now()/1000,trails:[],balls:[],rearmAt:0,pending:null,lastDt:performance.now()/1000};G.bhSplats=[];G.extraBalls=[];
+  // Block the 1.7s rest wait — we re-arm ourselves
+  G.restHandler=function(){};
   try{$('rangeP').classList.remove('on')}catch(e){}
   bhSignEl().style.display='block';
   G.cam=bhCam();G.camBl=null;G.camYaw=null;G.camMode=null;
   G.tracerOn=true;
   try{if(typeof WLspawnHunt==='function')WLspawnHunt(BH_DENS[den]||18)}catch(e){console.warn(e)}
-  G.onShot=()=>{G.tracerOn=true};
-  G.onRest=(res)=>{try{const a=G.anim;if(a&&a.P&&a.n>2){G.bh.trails.push({P:a.P.slice(0,a.n*3),n:a.n,t0:performance.now()/1000})}if(G.bh.trails.length>6)G.bh.trails.shift()}catch(e){}};
-  G.afterRest=()=>{if(!G.bh||!G.bh.on)return;G.ball={x:0,y:0,surf:S_TEE};G.cam=bhCam();setAddress();G.club=Math.min(G.club,6);updClubs();bhHUD()};
-  modeHUD('Bird Hunt','HUNT','Hit birds · 60 seconds', '0');
+  G.onShot=()=>{G.tracerOn=true;if(!G.bh||!G.bh.on||!G.anim)return;
+    const b=bhPushBall(G.anim);if(b){b.owned=0;G.bh.pending=b}
+    G.bh.rearmAt=performance.now()/1000+BH_REARM};
+  G.onRest=(res)=>{/* trails tracked via bh.balls; ignore ball land position */};
+  G.afterRest=()=>{if(!G.bh||!G.bh.on)return;bhRearm()};
+  modeHUD('Bird Hunt','HUNT','Rapid fire · hit birds · 60s','0');
   G.phase='address';setAddress();G.club=0;updClubs();updHUD();bhHUD();
-  toast('BIRD HUNT','Hit as many as you can — 60 seconds',2200)}
+  toast('BIRD HUNT','Rapid fire — mash swings, 60 seconds',2200)}
 function bhEnd(){const B=G.bh;if(!B||!B.on)return;B.on=0;const st=bhStore();const nb=B.score>(st.best||0);if(nb){st.best=B.score;bhSave(st)}
   try{if(typeof WLclear==='function')WLclear()}catch(e){}
   try{$('bhHUD').style.display='none';$('bhSign').style.display='none'}catch(e){}
+  G.restHandler=undefined;G.extraBalls=null;G.onShot=null;G.onRest=null;G.afterRest=null;
   G.mode='menu';G.ballOn=false;$('hud').classList.remove('on');
   show('scSetup',`<div class="pn"><div class="hdr"><h2>Bird Hunt · Time</h2></div>
   <div style="text-align:center;font:900 42px/1.1 system-ui;margin:10px 0">${B.score} <span style="font-size:18px;opacity:.75">hits</span></div>
@@ -4167,34 +4183,58 @@ function bhEnd(){const B=G.bh;if(!B||!B.on)return;B.on=0;const st=bhStore();cons
   <button class="btn" id="bhAg" style="margin-top:14px">Hunt again</button>
   <button class="btn alt c" id="bhMn">Main menu</button></div>`);
   $('bhAg').onclick=()=>startBirdHunt(B.den);$('bhMn').onclick=()=>{G.last=0;showMenu()}}
-/* fixed cam + timer + hit tests + fading trails + sign + blood ground marks */
+/* fixed cam */
 {const _uc=updCam0;updCam0=function(dt){if(G.mode==='birdhunt'&&G.bh&&G.bh.on){G.cam=bhCam();G.camBl=null;G.camYaw=null;return}return _uc.apply(this,arguments)}}
-{const _fr=frame;/* can't wrap frame easily — hook via onShot path + requestAnimationFrame companion */
-}
+function bhHitTest(bp,B){if(typeof WLhuntList!=='function')return;const list=WLhuntList();
+  for(const a of list){if(!a.hunt||!a.alive||a.hit)continue;const dx=bp[0]-a.x,dy=bp[1]-a.y,dz=bp[2]-(G.H.hAt(a.x,a.y)+a.h);
+    if(dx*dx+dy*dy<4.5*4.5&&Math.abs(dz)<5){a.alive=0;a.hit=1;a.vx+=(bp[0]-a.x)*8;a.vy+=(bp[1]-a.y)*8;B.score++;bhBloodBurst(a.x,a.y,G.H.hAt(a.x,a.y)+a.h);modeHUD('Bird Hunt','HUNT','Rapid fire · hit birds · 60s',''+B.score);toast('+1','Bird down',700)}}}
+function bhDrawTrails(B,now){if(!G.R||typeof glTracer!=='function'||!G.cam)return;
+  // Concatenate recent/live paths with degenerate strip restarts so every ball keeps a trail
+  const pts=[];let fN=0;
+  for(const b of B.balls){if(!b.anim||!b.anim.P||b.anim.n<2)continue;
+    const age=b.done?(now-b.tDone):0;if(b.done&&age>=BH_TRAIL_FADE)continue;
+    const k=Math.max(2,Math.min(b.anim.n,Math.floor(b.t*60)+2));
+    if(pts.length>=2){const lx=pts[pts.length-3],ly=pts[pts.length-2],lz=pts[pts.length-1];pts.push(lx,ly,lz);pts.push(b.anim.P[0],b.anim.P[1],b.anim.P[2])}
+    const start=pts.length/3;for(let i=0;i<k;i++){pts.push(b.anim.P[i*3],b.anim.P[i*3+1],b.anim.P[i*3+2])}
+    if(!b.done)fN=pts.length/3}
+  if(pts.length<6){try{G.R.tracerN=0}catch(e){}return}
+  const fade=1;const arr=pts instanceof Float32Array?pts:Float32Array.from(pts);
+  try{glTracer(G.R,arr,arr.length/3,G.cam.eye,fade,fN||arr.length/3,G.H)}catch(e){}}
 (function bhLoop(){requestAnimationFrame(bhLoop);try{
   if(!(G.mode==='birdhunt'&&G.bh&&G.bh.on))return;
-  const B=G.bh,now=performance.now()/1000;B.tLeft=Math.max(0,60-(now-B.t0));bhHUD();
+  const B=G.bh,now=performance.now()/1000;const dt=Math.min(.05,Math.max(.001,now-(B.lastDt||now)));B.lastDt=now;
+  B.tLeft=Math.max(0,60-(now-B.t0));bhHUD();
   if(B.tLeft<=0){bhEnd();return}
+  // Rapid re-arm: don't wait for ball stop
+  if(B.rearmAt&&now>=B.rearmAt&&(G.phase==='flight'||G.phase==='rest'||G.phase==='swing'))bhRearm();
   try{if(typeof WLhuntTick==='function')WLhuntTick(Math.min(.05,.033))}catch(e){}
   // sign project
   const el=bhSignEl();const sp=bhProject(18,290,G.H?G.H.hAt(18,290)+9:9);if(sp){el.style.display='block';el.style.left=sp[0]+'px';el.style.top=sp[1]+'px';el.style.transform='translate(-50%,-100%) scale('+Math.max(.35,Math.min(1.1,900/Math.max(200,sp[1])))+')'}
-  // hit test during flight
-  if(G.phase==='flight'&&G.anim&&typeof WLhuntList==='function'){const bp=ballAt(G.anim,G.anim.t);const list=WLhuntList();
-    for(const a of list){if(!a.hunt||!a.alive||a.hit)continue;const dx=bp[0]-a.x,dy=bp[1]-a.y,dz=bp[2]-(G.H.hAt(a.x,a.y)+a.h);
-      if(dx*dx+dy*dy<4.5*4.5&&Math.abs(dz)<5){a.alive=0;a.hit=1;a.vx+=(bp[0]-a.x)*8;a.vy+=(bp[1]-a.y)*8;B.score++;bhBloodBurst(a.x,a.y,G.H.hAt(a.x,a.y)+a.h);modeHUD('Bird Hunt','HUNT','Hit birds · 60 seconds',''+B.score);toast('+1','Bird down',700)}}}
+  // Advance owned balls + sync pending with main G.anim; hit-test all
+  const extras=[];
+  for(const b of B.balls){if(!b.anim)continue;
+    if(!b.owned&&b.anim===G.anim&&(G.phase==='flight'||G.phase==='rest')){b.t=G.anim.t;
+      if(G.phase==='rest'&&!b.done){b.done=1;b.tDone=now;b.owned=1}}
+    else if(b.owned&&!b.done){b.t+=dt;if(b.t*60>=b.anim.n-1){b.t=(b.anim.n-1)/60;b.done=1;b.tDone=now}}
+    else if(!b.owned&&b.anim!==G.anim&&!b.done){b.owned=1;b.t+=dt;if(b.t*60>=b.anim.n-1){b.t=(b.anim.n-1)/60;b.done=1;b.tDone=now}}
+    if(!b.done){const bp=ballAt(b.anim,b.t);bhHitTest(bp,B);
+      // skip drawing the tee-owned primary ball as an extra while main flight is rendering it
+      if(!(b.anim===G.anim&&G.phase==='flight'))extras.push({x:bp[0],y:bp[1],z:bp[2]})}
+    else if(now-b.tDone<.35){const bp=ballAt(b.anim,b.t);extras.push({x:bp[0],y:bp[1],z:bp[2]})}}
+  // prune fully faded
+  B.balls=B.balls.filter(b=>!b.done||(now-b.tDone)<BH_TRAIL_FADE);
+  G.extraBalls=extras;
   // splat when fallen
   if(typeof WLhuntList==='function'){for(const a of WLhuntList()){if(a.hunt&&a.hit&&!a.splatted&&a.h<=0.05){a.splatted=1;bhSplat(a.x,a.y);bhBloodBurst(a.x,a.y,G.H.hAt(a.x,a.y)+.2)}}}
-  // fading trails: keep drawing recent shot paths into tracer after rest
-  if((G.phase==='address'||G.phase==='rest'||G.phase==='swing')&&B.trails&&B.trails.length&&G.R&&typeof glTracer==='function'){
-    const live=B.trails.filter(tr=>now-tr.t0<3.2);B.trails=live;
-    if(live.length){const last=live[live.length-1];const age=now-last.t0;const fade=Math.max(0,1-age/3.2);
-      if(fade>0.05&&last.n>2){try{glTracer(G.R,last.P,last.n,G.cam.eye,fade,Math.min(last.n,40),G.H)}catch(e){}}}}
+  // fading trails for every live/recent ball
+  if(G.phase==='address'||G.phase==='rest'||G.phase==='swing'||G.phase==='flight')bhDrawTrails(B,now);
 }catch(e){window.BHerr=String(e&&e.message||e)}})();
 /* menu button */
 {const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{
-  if(G.bh)G.bh.on=0;try{const h=$('bhHUD');if(h)h.style.display='none';const s=$('bhSign');if(s)s.style.display='none'}catch(e){}
+  if(G.bh)G.bh.on=0;G.restHandler=undefined;G.extraBalls=null;
+  try{const h=$('bhHUD');if(h)h.style.display='none';const s=$('bhSign');if(s)s.style.display='none'}catch(e){}
   const m=document.querySelector('#scMenu .menu');if(m&&!$('mHunt')){const b=document.createElement('button');b.className='btn alt';b.id='mHunt';
-    b.innerHTML=`Bird Hunt<small>60s range · hit gulls · best ${bhStore().best||0}</small>`;b.onclick=showBirdHunt;
+    b.innerHTML=`Bird Hunt<small>60s rapid-fire · hit gulls · best ${bhStore().best||0}</small>`;b.onclick=showBirdHunt;
     const after=$('mMini')||$('mEnd')||$('mCart')||$('mRange')||$('mPlay');after.after(b)}}catch(e){console.warn(e)}return out}}
 
 /* birdhunt: always draw ball trail during flight; keep fixed aim down-range */
