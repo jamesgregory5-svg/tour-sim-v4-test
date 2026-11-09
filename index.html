@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.28';
+const VERSION='v4.29';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -397,7 +397,7 @@ function ldrProg(p){try{const bar=document.getElementById('ldrBar'),pct=document
 async function demInit(){
   if(typeof DecompressionStream==='undefined'){console.warn('no DecompressionStream: flat terrain');ldrProg(1);return}
   const ids=Object.keys(GEO).filter(id=>GEO[id].dem);const far=typeof DEM_FAR!=='undefined'?Object.keys(DEM_FAR):[];const tot=Math.max(1,ids.length+far.length);let done=0;const tick=async()=>{done++;ldrProg(done/tot);await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))};
-  ldrProg(.02);
+  ldrProg(0);
   for(const id of ids){const d=GEO[id].dem;
     try{const bin=Uint8Array.from(atob(d.b),c=>c.charCodeAt(0));
       const buf=new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
@@ -3878,7 +3878,7 @@ function mgBuildH(ci,hi){const C=MG_COURSES[ci],H0=C.holes[hi],L=mgXf(C,H0),T=MG
   return{crk:[],blds:[],inBld:()=>false,addTree:()=>{},rot:0,course:{id:'mini-'+C.id,name:C.name,style:'parkland',tees:[{n:'Tee',y:[10]}],par:[L.par]},hi,par:L.par,yards:Math.round(Math.hypot(L.cup[0]-L.tee[0],L.cup[1]-L.tee[1])),teeIdx:0,line:[[tee.x,tee.y],[cup.x,cup.y]],X0,Y0,X1,Y1,W,H:Hh,S,HT,NW:W,NH:Hh,hAt,demAt,surfAt,slopeAt,gradAt:()=>[0,0],greenH:()=>0,greenG:()=>[0,0],gm:{cx:L.cup[0],cy:L.cup[1],tx:0,ty:0,b:[[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0]]},G:null,F,sea:[],cup,trees:[],treeHit:()=>null,st,woodMask:new Uint8Array(W*Hh),tee,pews:null,towers:[],allTrees:[],mg:L,mgTheme:C.theme,mgT0:performance.now()/1000}}
 function mgHitSeg(nx,ny,vx,vy,sg,rad){const[a,c]=sg;const ex=c[0]-a[0],ey=c[1]-a[1],L2=ex*ex+ey*ey||1;let u=((nx-a[0])*ex+(ny-a[1])*ey)/L2;u=u<0?0:u>1?1:u;const px=a[0]+ex*u,py=a[1]+ey*u;let nnx=nx-px,nny=ny-py,d=Math.hypot(nnx,nny);
   if(!(d<rad&&d>1e-8))return null;nnx/=d;nny/=d;const vn=vx*nnx+vy*nny;const e=sg[2]?1.05:.88;return{nx:px+nnx*rad,ny:py+nny*rad,vx:vn<0?vx-(1+e)*vn*nnx:vx,vy:vn<0?vy-(1+e)*vn*nny:vy,kick:!!sg[2],nnx,nny}}
-function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1000-(H.mgT0||0),segs=mgSegsNow(hole,t0),rad=.2;
+function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1000-(H.mgT0||0),segs=mgSegsNow(hole,t0),rad=.24;
   let x=x0,y=y0,vx=Math.cos(hd)*v*YD,vy=Math.sin(hd)*v*YD;const dt=1/60;let n=0,tpCd=0;const put=(a,b)=>{if(rec&&n<rec.length-3){rec[n++]=a;rec[n++]=b;rec[n++]=0}};
   const res={kind:'rest',x,y,n:0};const resolve=()=>{for(let k=0;k<4;k++){let hit=null;for(const sg of segs){const h=mgHitSeg(x,y,vx,vy,sg,rad);if(h)hit=h}if(!hit)break;x=hit.nx;y=hit.ny;vx=hit.vx;vy=hit.vy;if(hit.kick){vx+=hit.nnx*6;vy+=hit.nny*6}}
     if(H.surfAt(x,y)===S_OB){/* push back inside along nearest wall normal instead of OOB */
@@ -3920,7 +3920,7 @@ function mgEnsureBox(R){if(R.mgBox)return R.mgBox;const P=[],N=[],I=[];
   return R.mgBox=R.vao([{loc:0,n:3,d:new Float32Array(P)},{loc:1,n:3,d:new Float32Array(N)}],new Uint16Array(I))}
 function mgDraw3D(R,draw){const H=G.H;if(!H||!H.mg)return;const hole=H.mg,t=performance.now()/1000-(H.mgT0||0),T=MG_THEMES[H.mgTheme]||MG_THEMES.meadow;
   const parse=c=>{const a=mgParseHex(c);return a.map(v=>v/255)};const rail=parse(T.rail),railS=parse(T.railS);const box=mgEnsureBox(R),segs=mgSegsNow(hole,t);
-  const wallH=1.05,thick=.2;
+  const wallH=1.15,thick=.28;
   for(const sg of segs){if(sg[2])continue;const[a,b]=sg;const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,len=Math.hypot(b[0]-a[0],b[1]-a[1])||.01,ang=Math.atan2(b[1]-a[1],b[0]-a[0]);
     const c=Math.cos(ang),s=Math.sin(ang);const z0=H.hAt(mx,my);const M=new Float32Array([c*len,s*len,0,0,-s*thick,c*thick,0,0,0,0,wallH,0,mx-c*len/2+s*thick/2,my-s*len/2-c*thick/2,z0,1]);
     draw(box,M,railS,0,.6);const M2=new Float32Array([c*len,s*len,0,0,-s*thick*.65,c*thick*.65,0,0,0,0,.18,0,mx-c*len/2+s*thick*.32,my-s*len/2-c*thick*.32,z0+wallH,1]);draw(box,M2,rail,0,H.mgTheme==='neon'?1.4:.85)}
@@ -3931,15 +3931,27 @@ function mgDraw3D(R,draw){const H=G.H;if(!H||!H.mg)return;const hole=H.mg,t=perf
       for(let k=0;k<4;k++){const a=t*o.spd+k*Math.PI/2,c=Math.cos(a),s=Math.sin(a);const M=new Float32Array([c*o.len,s*o.len,0,0,-s*.1,c*.1,0,0,0,0,.12,0,o.x-c*o.len/2,o.y-s*o.len/2,z0+2.7,1]);draw(box,M,H.mgTheme==='neon'?[.25,.8,1]:[.9,.85,.7],0,.9)}}
     if(o.k==='tp'){for(const[p,col]of[[o.a,[.25,.8,1]],[o.b,[1,.45,.2]]]){const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.ringM,TRS(p[0],p[1],.04,1.15,1.15,.1),col,0,1.2)}}}
   /* moving blocks */
-  for(const o of hole.ob)if(o.k==='mov'){const s=Math.sin(t*o.spd)*.5+.5,x=o.x+o.dx*s,y=o.y+o.dy*s;const M=new Float32Array([o.w,0,0,0,0,o.h,0,0,0,0,1.1,0,x,y,0,1]);draw(box,M,railS,0,.7)}}
+  for(const o of hole.ob)if(o.k==='mov'){const s=Math.sin(t*o.spd)*.5+.5,x=o.x+o.dx*s,y=o.y+o.dy*s;const z0=H.hAt(x,y);const M=new Float32Array([o.w,0,0,0,0,o.h,0,0,0,0,1.1,0,x,y,z0,1]);draw(box,M,railS,0,.7)}}
 {const _gd=glDraw;glDraw=function(R,cam,S){if(G.mgOn&&S&&S.ballPos&&G.H){const z=G.H.hAt(S.ballPos[0],S.ballPos[1]);S.ballPos[2]=z;S.ballBoost=.4}const r=_gd.apply(this,arguments);try{if(G.mgOn&&R.hole){const p=R.pMesh,u=p.u,gl=R.gl;gl.useProgram(p.p);gl.uniform1f(u.uBallD,0);gl.disable(gl.CULL_FACE);
   const draw=(m,M,c,flag,em)=>{if(!m)return;gl.uniformMatrix4fv(u.uM,false,M);gl.uniform3fv(u.uC,c);gl.uniform1f(u.uFlag,flag||0);gl.uniform1f(u.uEmis,em||0);gl.bindVertexArray(m.v);gl.drawElements(gl.TRIANGLES,m.n,m.it,0)};
   mgDraw3D(R,draw);gl.enable(gl.CULL_FACE)}}catch(e){window.MGerr=String(e&&e.message||e)}return r}}
+
+function mgCamPutt(){const b=G.ball,H=G.H,cup=H.cup;const d=Math.max(.35,Math.hypot(cup.x-b.x,cup.y-b.y));
+  const toCup=Math.atan2(cup.y-b.y,cup.x-b.x);const ax=Math.cos(toCup),ay=Math.sin(toCup);
+  let back=clamp(1.5+d*.14,1.5,4.2),up=clamp(.5+d*.05,.5,1.6);
+  let ex=b.x-ax*back,ey=b.y-ay*back;
+  const ok=(x,y)=>{const s=H.surfAt(x,y);if(s===S_OB||s===S_WATER)return false;if(H.mg&&H.mg.poly&&typeof mgPip==='function')return mgPip([x,y],H.mg.poly);return true};
+  if(!ok(ex,ey)){let found=0;for(let t=back;t>=.6;t-=.2){const x=b.x-ax*t,y=b.y-ay*t;if(ok(x,y)){ex=x;ey=y;back=t;found=1;break}}
+    if(!found){const sx=-ay,sy=ax;for(const s of[1.1,-1.1,2.1,-2.1,.55,-.55,2.8,-2.8]){const x=b.x+sx*s-ax*Math.min(1.8,back),y=b.y+sy*s-ay*Math.min(1.8,back);if(ok(x,y)){ex=x;ey=y;found=1;break}}
+      if(!found){ex=b.x-ax*.9;ey=b.y-ay*.9}}}
+  const hz=H.hAt(ex,ey),look=Math.min(d,5.5),atx=b.x+ax*look*.7,aty=b.y+ay*look*.7;
+  const ez=hz+up;let atz=H.hAt(atx,aty)+.02;if(atz>ez-.2)atz=ez-.35;/* always look slightly down — never sky pitch */
+  return{eye:v3(ex,ey,ez),at:v3(atx,aty,atz),fov:.7}}
 function mgStop2D(){try{MG.on=false;cancelAnimationFrame(MG.raf);if(MG.cv)MG.cv.style.display='none'}catch(e){}G.cartOn=false}
 mgStart=function(ci,hi){mgStop2D();MG.ci=ci;MG.hi=hi||0;MG.card=[];MG.c=MG_COURSES[ci];G.mgOn=1;G.mode='mini';
   hideScreens();$('hud').classList.add('on');mgLoad3D()};
 function mgLoad3D(){const H=mgBuildH(MG.ci,MG.hi);setHole(H);try{if(H.mgTheme==='neon')applyTOD('night',H);else if(H.mgTheme==='ice')applyTOD('morning',H);else if(H.mgTheme==='desert')applyTOD('sunset',H);else applyTOD('midday',H)}catch(e){}G.ball={x:H.tee.x,y:H.tee.y,surf:S_GREEN};G.strokes=0;G.pen=0;G.putts=0;G.ballOn=true;G.aim=Math.atan2(H.cup.y-H.tee.y,H.cup.x-H.tee.x);G.phase='putt';G.club=PUTTER;G.view=0;G.sw=null;G.replay=null;G.R.tracerN=0;
-  G.onShot=null;G.onRest=()=>{try{G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;G.camMode=null;G.cam=camAddress();camSnap();updHUD();updPutt()}catch(e){}if(G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}};G.onHoled=()=>mgFinishHole(false);try{if(window.WL){WL.on=false;const c=document.getElementById('wlC');if(c)c.style.display='none'}}catch(e){}
+  G.onShot=null;G.onRest=()=>{try{G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;G.camMode=null;G.cam=mgCamPutt();G.camBl=null;updHUD();updPutt()}catch(e){}if(G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}};G.onHoled=()=>mgFinishHole(false);G.afterRest=()=>{G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.cam=mgCamPutt();setAddress()};try{if(window.WL){WL.on=false;const c=document.getElementById('wlC');if(c)c.style.display='none'}}catch(e){}
   G.phase='putt';G.club=PUTTER;G.view=0;setAddress();G.phase='putt';G.club=PUTTER;try{updClubs();updHUD();updPutt();$('bCard').style.display='none';$('bRep').style.display='none';const mb=$('modeBar');if(mb)mb.style.display='none';const cl=$('clubs');if(cl)cl.style.display='none';const sh=$('shot');if(sh)sh.style.display='none'}catch(e){}
   try{G.cam=null;camSnap()}catch(e){}mgHud();toast(MG.c.name,'Hole '+(MG.hi+1)+' / '+MG.c.holes.length+' · Par '+H.par,2000)}
 function mgHud(){try{$('bHn').textContent='HOLE '+(MG.hi+1);$('bName').textContent=MG.c.name;const tot=MG.card.reduce((a,v)=>a+(v||0),0);let p=0;for(let i=0;i<MG.card.length;i++)if(MG.card[i])p+=MG.c.holes[i].par;const d=tot-p;$('bPar').textContent='PAR '+G.H.par+' · '+tot+' ('+(d===0?'E':d>0?'+'+d:''+d)+')';$('bSc').textContent=''}catch(e){}}
@@ -3954,10 +3966,13 @@ function mgResults3D(){const C=MG.c,par=C.holes.reduce((a,h)=>a+h.par,0),tot=MG.
 mgExit=function(){G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');mgStop2D();showMiniCourses()};
 {const _sm=showMenu;showMenu=function(){if(G.mgOn){G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');mgStop2D()}return _sm.apply(this,arguments)}}
 addEventListener('keydown',e=>{if(G.mgOn&&e.code==='Escape'){e.stopPropagation();mgExit()}},true);
-{const _sa=setAddress;setAddress=function(){const r=_sa.apply(this,arguments);if(G.mgOn){G.phase='putt';G.club=PUTTER;G.view=0;try{updClubs();updHUD();mgHud()}catch(e){}}return r}}
+{const _sa=setAddress;setAddress=function(){const r=_sa.apply(this,arguments);if(G.mgOn){G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;try{G.cam=mgCamPutt();updClubs();updHUD();mgHud()}catch(e){}}return r}}
 {const _fs=finishShot;finishShot=function(){if(!G.mgOn)return _fs.apply(this,arguments);const a=G.anim,res=a&&a.res;const r=_fs.apply(this,arguments);try{if(res&&res.kind!=='sunk'&&G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}}catch(e){}return r}}
 
 {const _smc=showMiniCourses;showMiniCourses=function(){const r=_smc.apply(this,arguments);try{const n=document.querySelector("#scSetup .gnote");if(n)n.textContent="Five 5-hole courses in Tour Sim 3D. Same putter stroke and camera as regular putting. Rails bounce, windmills block, bumpers kick, sand slows, water costs a stroke, portals warp. Max "+MG_MAXS+" strokes a hole."}catch(e){}return r}}
+
+/* v4.29: mini-golf putt cam — keep eye on the green, look down at ball/cup (fixes sky-only view after wall rests) */
+{const _ca=camAddress;camAddress=function(){if(G.mgOn&&G.H&&G.ball&&(G.phase==='putt'||G.club===PUTTER||G.phase==='address'))return mgCamPutt();return _ca.apply(this,arguments)}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
