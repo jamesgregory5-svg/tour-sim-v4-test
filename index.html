@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.30';
+const VERSION='v4.31';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3885,7 +3885,7 @@ function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1
       let best=null,bd=1e9;for(const sg of segs){if(sg[2])continue;const[a,c]=sg;const ex=c[0]-a[0],ey=c[1]-a[1],L2=ex*ex+ey*ey||1;let u=((x-a[0])*ex+(y-a[1])*ey)/L2;u=u<0?0:u>1?1:u;const px=a[0]+ex*u,py=a[1]+ey*u,d=Math.hypot(x-px,y-py);if(d<bd){bd=d;best={px,py,dx:x-px,dy:y-py}}}
       if(best&&bd>1e-8){let nx=best.dx/bd,ny=best.dy/bd;x=best.px+nx*(rad+.02);y=best.py+ny*(rad+.02);const vn=vx*nx+vy*ny;if(vn>0){vx-=2*vn*nx;vy-=2*vn*ny}vx*=.75;vy*=.75}else{vx*=-.7;vy*=-.7}}};
   for(let it=0;it<1800;it++){const s0=H.surfAt(x,y);if(s0===S_WATER){res.kind='water';res.x=x;res.y=y;break}
-    let ax=0,ay=0;{const g=H.slopeAt(x,y);ax=g.x;ay=g.y}let fr=CR[s0]||CR[S_GREEN];if(H.mgTheme==='ice'&&s0===S_GREEN)fr*=.35;
+    let ax=0,ay=0;{const g=H.slopeAt(x,y);ax=g.x;ay=g.y}let fr=CR[s0]||CR[S_GREEN];if(H.mgTheme==='ice'&&s0===S_GREEN)fr*=.35;if(s0===S_SAND)fr*=1.35;
     vx+=ax*dt;vy+=ay*dt;const sp=Math.hypot(vx,vy),dec=fr*GRAV*YD;if(sp<1e-4)break;const ns=sp-dec*dt;if(ns<=0||(ns<.05&&Math.hypot(ax,ay)<dec*.9))break;vx*=ns/sp;vy*=ns/sp;
     let stepSunk=0;const steps=6;for(let st=0;st<steps;st++){const x1=x,y1=y;x+=vx*(dt/steps);y+=vy*(dt/steps);
       {/* cup first so walls near the hole don't spit a on-line ball past the cup */
@@ -3895,7 +3895,7 @@ function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1
       resolve();
       for(const o of hole.ob)if(o.k==='bump'){const dx=x-o.x,dy=y-o.y,d=Math.hypot(dx,dy),rr=(o.rad||1)+rad;if(d<rr&&d>1e-8){const nxn=dx/d,nyn=dy/d;x=o.x+nxn*rr;y=o.y+nyn*rr;const vn=vx*nxn+vy*nyn;if(vn<0){vx-=2*vn*nxn;vy-=2*vn*nyn;vx+=nxn*8;vy+=nyn*8}}}}
     if(stepSunk){put(H.cup.x,H.cup.y);res.kind='sunk';x=H.cup.x;y=H.cup.y;break}
-    tpCd-=dt;for(const o of hole.ob)if(o.k==='tp'&&tpCd<=0){for(const[p,q]of[[o.a,o.b],[o.b,o.a]])if(Math.hypot(x-p[0],y-p[1])<.9){x=q[0];y=q[1];tpCd=.55;break}}
+    tpCd-=dt;for(const o of hole.ob)if(o.k==='tp'&&tpCd<=0){for(const[p,q]of[[o.a,o.b],[o.b,o.a]])if(Math.hypot(x-p[0],y-p[1])<.9){x=q[0];y=q[1];vx*=.55;vy*=.55;tpCd=.55;break}}
     put(x,y);const cup=H.cup;let sunk=0;
     {/* path-aware cup: drop if this step's segment passes over the hole at droppable speed */
       const sx=x-(x-vx*dt),sy=y-(y-vy*dt);const ox=x-sx,oy=y-sy,L2=ox*ox+oy*oy;let tu=L2?((cup.x-sx)*ox+(cup.y-sy)*oy)/L2:0;tu=tu<0?0:tu>1?1:tu;
@@ -3908,6 +3908,9 @@ function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1
         else if(dc<.18&&ns<.95&&dc>1e-4){vx+=dx/dc*3.4*dt;vy+=dy/dc*3.4*dt}}}
     if(sunk)break}
   if(res.kind!=='sunk'&&Math.hypot(H.cup.x-x,H.cup.y-y)<.17){put(H.cup.x,H.cup.y);res.kind='sunk';x=H.cup.x;y=H.cup.y}
+  if(res.kind!=='sunk'){/* peel off rails so the next putt cam/aim is not jammed in a wall */
+    for(let k=0;k<3;k++){let px=x,py=y,hit=0;for(const sg of segs){if(sg[2])continue;const h=mgHitSeg(x,y,0,0,sg,rad+.04);if(h){x=h.nx;y=h.ny;hit=1}}if(!hit)break}
+    if(H.surfAt(x,y)===S_OB){const cx=H.cup.x-x,cy=H.cup.y-y,L=Math.hypot(cx,cy)||1;x+=cx/L*.15;y+=cy/L*.15}}
   res.x=x;res.y=y;res.n=n/3;res.surf=H.surfAt(x,y);if(res.surf===S_OB){res.kind='rest';res.surf=S_GREEN}return res}
 {const _pr=puttRoll;puttRoll=function(x,y,hd,v,surfAt,slopeAt,cup,rec){if(G.mgOn)return mgPuttRoll(x,y,hd,v,rec);return _pr.apply(this,arguments)}}
 function mgEnsureBox(R){if(R.mgBox)return R.mgBox;const P=[],N=[],I=[];
@@ -3931,7 +3934,7 @@ function mgDraw3D(R,draw){const H=G.H;if(!H||!H.mg)return;const hole=H.mg,t=perf
       for(let k=0;k<4;k++){const a=t*o.spd+k*Math.PI/2,c=Math.cos(a),s=Math.sin(a);const M=new Float32Array([c*o.len,s*o.len,0,0,-s*.1,c*.1,0,0,0,0,.12,0,o.x-c*o.len/2,o.y-s*o.len/2,z0+2.7,1]);draw(box,M,H.mgTheme==='neon'?[.25,.8,1]:[.9,.85,.7],0,.9)}}
     if(o.k==='tp'){for(const[p,col]of[[o.a,[.25,.8,1]],[o.b,[1,.45,.2]]]){const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.ringM,TRS(p[0],p[1],.04,1.15,1.15,.1),col,0,1.2)}}}
   /* moving blocks */
-  for(const o of hole.ob)if(o.k==='mov'){const s=Math.sin(t*o.spd)*.5+.5,x=o.x+o.dx*s,y=o.y+o.dy*s;const z0=H.hAt(x,y);const M=new Float32Array([o.w,0,0,0,0,o.h,0,0,0,0,1.1,0,x,y,z0,1]);draw(box,M,railS,0,.7)}}
+  for(const o of hole.ob)if(o.k==='mov'){const s=Math.sin(t*o.spd)*.5+.5,x=o.x+o.dx*s,y=o.y+o.dy*s;const z0=H.hAt(x,y);const M=new Float32Array([o.w,0,0,0,0,o.h,0,0,0,0,1.1,0,x,y,z0,1]);draw(box,M,railS,0,.7)};{const c=H.cup,z=H.hAt(c.x,c.y);const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);if(R.ringM)draw(R.ringM,TRS(c.x,c.y,z+.02,.55,.55,.08),H.mgTheme==='neon'?[1,.3,.9]:[.95,.95,.9],0,1.1)}}
 {const _gd=glDraw;glDraw=function(R,cam,S){if(G.mgOn&&S&&S.ballPos&&G.H){const z=G.H.hAt(S.ballPos[0],S.ballPos[1]);S.ballPos[2]=z;S.ballBoost=.4}const r=_gd.apply(this,arguments);try{if(G.mgOn&&R.hole){const p=R.pMesh,u=p.u,gl=R.gl;gl.useProgram(p.p);gl.uniform1f(u.uBallD,0);gl.disable(gl.CULL_FACE);
   const draw=(m,M,c,flag,em)=>{if(!m)return;gl.uniformMatrix4fv(u.uM,false,M);gl.uniform3fv(u.uC,c);gl.uniform1f(u.uFlag,flag||0);gl.uniform1f(u.uEmis,em||0);gl.bindVertexArray(m.v);gl.drawElements(gl.TRIANGLES,m.n,m.it,0)};
   mgDraw3D(R,draw);gl.enable(gl.CULL_FACE)}}catch(e){window.MGerr=String(e&&e.message||e)}return r}}
