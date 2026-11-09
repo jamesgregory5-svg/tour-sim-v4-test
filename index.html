@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.32';
+const VERSION='v4.33';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3877,7 +3877,7 @@ function mgBuildH(ci,hi){const C=MG_COURSES[ci],H0=C.holes[hi],L=mgXf(C,H0),T=MG
   const cup={x:L.cup[0],y:L.cup[1],pin:1},tee={x:L.tee[0],y:L.tee[1]};
   return{crk:[],blds:[],inBld:()=>false,addTree:()=>{},rot:0,course:{id:'mini-'+C.id,name:C.name,style:'parkland',tees:[{n:'Tee',y:[10]}],par:[L.par]},hi,par:L.par,yards:Math.round(Math.hypot(L.cup[0]-L.tee[0],L.cup[1]-L.tee[1])),teeIdx:0,line:[[tee.x,tee.y],[cup.x,cup.y]],X0,Y0,X1,Y1,W,H:Hh,S,HT,NW:W,NH:Hh,hAt,demAt,surfAt,slopeAt,gradAt:()=>[0,0],greenH:()=>0,greenG:()=>[0,0],gm:{cx:L.cup[0],cy:L.cup[1],tx:0,ty:0,b:[[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0]]},G:null,F,sea:[],cup,trees:[],treeHit:()=>null,st,woodMask:new Uint8Array(W*Hh),tee,pews:null,towers:[],allTrees:[],mg:L,mgTheme:C.theme,mgT0:performance.now()/1000}}
 function mgHitSeg(nx,ny,vx,vy,sg,rad){const[a,c]=sg;const ex=c[0]-a[0],ey=c[1]-a[1],L2=ex*ex+ey*ey||1;let u=((nx-a[0])*ex+(ny-a[1])*ey)/L2;u=u<0?0:u>1?1:u;const px=a[0]+ex*u,py=a[1]+ey*u;let nnx=nx-px,nny=ny-py,d=Math.hypot(nnx,nny);
-  if(!(d<rad&&d>1e-8))return null;nnx/=d;nny/=d;const vn=vx*nnx+vy*nny;const e=sg[2]?1.05:.88;return{nx:px+nnx*rad,ny:py+nny*rad,vx:vn<0?vx-(1+e)*vn*nnx:vx,vy:vn<0?vy-(1+e)*vn*nny:vy,kick:!!sg[2],nnx,nny}}
+  if(!(d<rad&&d>1e-8))return null;nnx/=d;nny/=d;const vn=vx*nnx+vy*nny;const e=sg[2]?1.08:.92;return{nx:px+nnx*rad,ny:py+nny*rad,vx:vn<0?vx-(1+e)*vn*nnx:vx,vy:vn<0?vy-(1+e)*vn*nny:vy,kick:!!sg[2],nnx,nny}}
 function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1000-(H.mgT0||0),segs=mgSegsNow(hole,t0),rad=.24;
   let x=x0,y=y0,vx=Math.cos(hd)*v*YD,vy=Math.sin(hd)*v*YD;const dt=1/60;let n=0,tpCd=0;const put=(a,b)=>{if(rec&&n<rec.length-3){rec[n++]=a;rec[n++]=b;rec[n++]=0}};
   const res={kind:'rest',x,y,n:0};const resolve=()=>{for(let k=0;k<4;k++){let hit=null;for(const sg of segs){const h=mgHitSeg(x,y,vx,vy,sg,rad);if(h)hit=h}if(!hit)break;x=hit.nx;y=hit.ny;vx=hit.vx;vy=hit.vy;if(hit.kick){vx+=hit.nnx*6;vy+=hit.nny*6}}
@@ -3887,7 +3887,7 @@ function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1
   for(let it=0;it<1800;it++){const s0=H.surfAt(x,y);if(s0===S_WATER){res.kind='water';res.x=x;res.y=y;break}
     let ax=0,ay=0;{const g=H.slopeAt(x,y);ax=g.x;ay=g.y}let fr=CR[s0]||CR[S_GREEN];if(H.mgTheme==='ice'&&s0===S_GREEN)fr*=.35;if(s0===S_SAND)fr*=1.35;
     vx+=ax*dt;vy+=ay*dt;const sp=Math.hypot(vx,vy),dec=fr*GRAV*YD;if(sp<1e-4)break;const ns=sp-dec*dt;if(ns<=0||(ns<.05&&Math.hypot(ax,ay)<dec*.9))break;vx*=ns/sp;vy*=ns/sp;
-    let stepSunk=0;const steps=6;for(let st=0;st<steps;st++){const x1=x,y1=y;x+=vx*(dt/steps);y+=vy*(dt/steps);
+    let stepSunk=0;const steps=sp>7?10:sp>3.5?8:6;for(let st=0;st<steps;st++){const x1=x,y1=y;x+=vx*(dt/steps);y+=vy*(dt/steps);
       {/* cup first so walls near the hole don't spit a on-line ball past the cup */
         const ox=x-x1,oy=y-y1,L2=ox*ox+oy*oy||1;let tu=((H.cup.x-x1)*ox+(H.cup.y-y1)*oy)/L2;tu=tu<0?0:tu>1?1:tu;
         const cd=Math.hypot(x1+ox*tu-H.cup.x,y1+oy*tu-H.cup.y),ns=Math.hypot(vx,vy);
@@ -3907,7 +3907,7 @@ function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1
         else if(dc<.16&&ns<1.2){put(cup.x,cup.y);res.kind='sunk';x=cup.x;y=cup.y;sunk=1}
         else if(dc<.18&&ns<.95&&dc>1e-4){vx+=dx/dc*3.4*dt;vy+=dy/dc*3.4*dt}}}
     if(sunk)break}
-  if(res.kind!=='sunk'&&Math.hypot(H.cup.x-x,H.cup.y-y)<.17){put(H.cup.x,H.cup.y);res.kind='sunk';x=H.cup.x;y=H.cup.y}
+  if(res.kind!=='sunk'&&Math.hypot(H.cup.x-x,H.cup.y-y)<.19){put(H.cup.x,H.cup.y);res.kind='sunk';x=H.cup.x;y=H.cup.y}
   if(res.kind!=='sunk'){/* peel off rails so the next putt cam/aim is not jammed in a wall */
     for(let k=0;k<3;k++){let px=x,py=y,hit=0;for(const sg of segs){if(sg[2])continue;const h=mgHitSeg(x,y,0,0,sg,rad+.04);if(h){x=h.nx;y=h.ny;hit=1}}if(!hit)break}
     if(H.surfAt(x,y)===S_OB){const cx=H.cup.x-x,cy=H.cup.y-y,L=Math.hypot(cx,cy)||1;x+=cx/L*.15;y+=cy/L*.15}}
@@ -3923,7 +3923,7 @@ function mgEnsureBox(R){if(R.mgBox)return R.mgBox;const P=[],N=[],I=[];
   return R.mgBox=R.vao([{loc:0,n:3,d:new Float32Array(P)},{loc:1,n:3,d:new Float32Array(N)}],new Uint16Array(I))}
 function mgDraw3D(R,draw){const H=G.H;if(!H||!H.mg)return;const hole=H.mg,t=performance.now()/1000-(H.mgT0||0),T=MG_THEMES[H.mgTheme]||MG_THEMES.meadow;
   const parse=c=>{const a=mgParseHex(c);return a.map(v=>v/255)};const rail=parse(T.rail),railS=parse(T.railS);const box=mgEnsureBox(R),segs=mgSegsNow(hole,t);
-  const wallH=1.15,thick=.28;
+  const wallH=1.2,thick=.34;
   for(const sg of segs){if(sg[2])continue;const[a,b]=sg;const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,len=Math.hypot(b[0]-a[0],b[1]-a[1])||.01,ang=Math.atan2(b[1]-a[1],b[0]-a[0]);
     const c=Math.cos(ang),s=Math.sin(ang);const z0=H.hAt(mx,my);const M=new Float32Array([c*len,s*len,0,0,-s*thick,c*thick,0,0,0,0,wallH,0,mx-c*len/2+s*thick/2,my-s*len/2-c*thick/2,z0,1]);
     draw(box,M,railS,0,.6);const M2=new Float32Array([c*len,s*len,0,0,-s*thick*.65,c*thick*.65,0,0,0,0,.18,0,mx-c*len/2+s*thick*.32,my-s*len/2-c*thick*.32,z0+wallH,1]);draw(box,M2,rail,0,H.mgTheme==='neon'?1.4:.85)}
@@ -3939,17 +3939,21 @@ function mgDraw3D(R,draw){const H=G.H;if(!H||!H.mg)return;const hole=H.mg,t=perf
   const draw=(m,M,c,flag,em)=>{if(!m)return;gl.uniformMatrix4fv(u.uM,false,M);gl.uniform3fv(u.uC,c);gl.uniform1f(u.uFlag,flag||0);gl.uniform1f(u.uEmis,em||0);gl.bindVertexArray(m.v);gl.drawElements(gl.TRIANGLES,m.n,m.it,0)};
   mgDraw3D(R,draw);gl.enable(gl.CULL_FACE)}}catch(e){window.MGerr=String(e&&e.message||e)}return r}}
 
-function mgCamPutt(){const b=G.ball,H=G.H,cup=H.cup;const d=Math.max(.35,Math.hypot(cup.x-b.x,cup.y-b.y));
-  const toCup=Math.atan2(cup.y-b.y,cup.x-b.x);const ax=Math.cos(toCup),ay=Math.sin(toCup);
+function mgCamPutt(bx,by,dirx,diry){const b=G.ball,H=G.H,cup=H.cup;bx=bx!=null?bx:b.x;by=by!=null?by:b.y;
+  const d=Math.max(.35,Math.hypot(cup.x-bx,cup.y-by));
+  let ax,ay;if(dirx!=null&&diry!=null){const L=Math.hypot(dirx,diry)||1;ax=dirx/L;ay=diry/L}else{const toCup=Math.atan2(cup.y-by,cup.x-bx);ax=Math.cos(toCup);ay=Math.sin(toCup)}
   let back=clamp(1.5+d*.14,1.5,4.2),up=clamp(.5+d*.05,.5,1.6);
-  let ex=b.x-ax*back,ey=b.y-ay*back;
+  let ex=bx-ax*back,ey=by-ay*back;
   const ok=(x,y)=>{const s=H.surfAt(x,y);if(s===S_OB||s===S_WATER)return false;if(H.mg&&H.mg.poly&&typeof mgPip==='function')return mgPip([x,y],H.mg.poly);return true};
-  if(!ok(ex,ey)){let found=0;for(let t=back;t>=.6;t-=.2){const x=b.x-ax*t,y=b.y-ay*t;if(ok(x,y)){ex=x;ey=y;back=t;found=1;break}}
-    if(!found){const sx=-ay,sy=ax;for(const s of[1.1,-1.1,2.1,-2.1,.55,-.55,2.8,-2.8]){const x=b.x+sx*s-ax*Math.min(1.8,back),y=b.y+sy*s-ay*Math.min(1.8,back);if(ok(x,y)){ex=x;ey=y;found=1;break}}
-      if(!found){ex=b.x-ax*.9;ey=b.y-ay*.9}}}
-  const hz=H.hAt(ex,ey),look=Math.min(d,5.5),atx=b.x+ax*look*.7,aty=b.y+ay*look*.7;
-  const ez=hz+up;let atz=H.hAt(atx,aty)+.02;if(atz>ez-.2)atz=ez-.35;/* always look slightly down — never sky pitch */
-  return{eye:v3(ex,ey,ez),at:v3(atx,aty,atz),fov:.7}}
+  if(!ok(ex,ey)){let found=0;for(let t=back;t>=.45;t-=.15){const x=bx-ax*t,y=by-ay*t;if(ok(x,y)){ex=x;ey=y;back=t;found=1;break}}
+    if(!found){const sx=-ay,sy=ax;for(const s of[1.1,-1.1,2.1,-2.1,.55,-.55,2.8,-2.8,.3,-.3]){const x=bx+sx*s-ax*Math.min(1.6,back),y=by+sy*s-ay*Math.min(1.6,back);if(ok(x,y)){ex=x;ey=y;back=Math.hypot(bx-ex,by-ey);found=1;break}}
+      if(!found){ex=bx-ax*.7;ey=by-ay*.7;back=.7}}}
+  /* near walls / short back: drop eye + look at the ball so sky never fills the frame */
+  if(back<1.35)up=Math.min(up,.48+back*.12);
+  const hz=H.hAt(ex,ey);const look=back<1.35?Math.min(d,1.2):Math.min(d,5.5);
+  const atx=bx+ax*look*(back<1.35?.35:.7),aty=by+ay*look*(back<1.35?.35:.7);
+  const ez=hz+up;let atz=H.hAt(atx,aty)+.02;if(atz>ez-.25)atz=ez-.4;/* always look slightly down — never sky pitch */
+  const fov=back<1.35?.62:.7;return{eye:v3(ex,ey,ez),at:v3(atx,aty,atz),fov}}
 function mgStop2D(){try{MG.on=false;cancelAnimationFrame(MG.raf);if(MG.cv)MG.cv.style.display='none'}catch(e){}G.cartOn=false}
 mgStart=function(ci,hi){mgStop2D();MG.ci=ci;MG.hi=hi||0;MG.card=[];MG.c=MG_COURSES[ci];G.mgOn=1;G.mode='mini';
   hideScreens();$('hud').classList.add('on');mgLoad3D()};
@@ -3984,6 +3988,9 @@ addEventListener('keydown',e=>{if(G.mgOn&&e.code==='Escape'){e.stopPropagation()
   const cap=Math.max(8,d*3*1.35+4);ft=Math.min(ft,cap);
   return _ep.call(this,Object.assign({},inp,{ft}));}
 }
+
+/* v4.33: mini-golf flight cam — keep eye on the green during the putt roll (fixes sky view mid-bounce) */
+{const _uc=updCam0;updCam0=function(dt){if(G.mgOn&&G.H&&G.phase==='flight'&&G.anim&&G.anim.put){const a=G.anim,bp=ballAt(a,a.t);const ax=Math.cos(G.aim),ay=Math.sin(G.aim);G.cam=mgCamPutt(bp[0],bp[1],ax,ay);return}return _uc.apply(this,arguments)}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}

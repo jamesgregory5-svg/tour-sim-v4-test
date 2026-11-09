@@ -1,6 +1,6 @@
 # Tour Sim v4 test
 
-Current: v4.32 (mini-golf wider cup capture on path + quieter trails). Password unchanged.
+Current: v4.33 (mini-golf flight cam stays on green near walls; thicker rails; stickier cup). Password unchanged.
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
@@ -23,3 +23,4 @@ Current: v4.32 (mini-golf wider cup capture on path + quieter trails). Password 
 - v4.30: Mini-golf putt power soft-cap on short holes; stickier cup rest; hide launch monitor in mini-golf.
 - v4.31: Peel ball off rails after rest; portal speed damp; sand slower; visible cup ring.
 - v4.32: Wider on-path cup capture; trails off in mini-golf for clarity.
+- v4.33: Putt-flight cam clamped on green (no sky mid-bounce); thicker rails; firmer wall bounce; wider rest cup assist.
