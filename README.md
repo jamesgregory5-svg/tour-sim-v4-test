@@ -15,3 +15,4 @@ Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off 
 - v4.22: Mini-golf mode (menu, after Endless): own putting physics, 5 courses x 5 holes (Windmill Meadow, Pirate Cove, Neon Galaxy, Desert Canyon, Ice Castle), scorecard + course bests.
 - v4.23: Music packs: 8 original synthesized tracks (3 free, 5 unlockable), separate menu / in-round track and volume, Music screen on the main menu.
 - v4.24: Announcer — spoken comments on notable shots (Web Speech), on/off + volume, Announcer screen near Music.
+- v4.25: Wildlife birds fly along the fairway/green corridor (no longer circling near the tee).
