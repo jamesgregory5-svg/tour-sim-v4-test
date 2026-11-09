@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.22';
+const VERSION='v4.23';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3728,6 +3728,55 @@ function showMiniCourses(){const st=mgStore();const s=show('scSetup',`<div class
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:10px">${MG_COURSES.map((C,i)=>`<button class="mgC" data-i="${i}" style="text-align:left;background:#121a20;border:1px solid #2a3a44;border-radius:14px;padding:8px;color:#fff;cursor:pointer;font:inherit"><img src="${mgThumb(C)}" style="width:100%;border-radius:10px;display:block"><div style="font-weight:800;margin-top:6px">${esc(C.name)}</div><div style="font-size:12px;opacity:.75">${esc(C.desc)}</div><div style="font-size:12px;margin-top:3px;opacity:.85">${C.holes.length} holes · par ${C.holes.reduce((a,h)=>a+h.par,0)} · best ${st.best[C.id]??'—'}</div></button>`).join('')}</div></div>`);
   $('mgB').onclick=showMenu;s.querySelectorAll('.mgC').forEach(b=>b.onclick=()=>mgStart(+b.dataset.i))}
 {const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{if(MG.on)mgStop();const m=document.querySelector('#scMenu .menu');if(m&&!$('mMini')){const b=document.createElement('button');b.className='btn alt';b.id='mMini';b.innerHTML='Mini-golf<small>Five putt-putt courses · windmills, bumpers, portals</small>';b.onclick=showMiniCourses;const after=$('mEnd')||$('mCart')||$('mPlay');after.after(b)}}catch(e){console.warn(e)}return out}}
+
+/* v4.23: Music packs. Original tracks synthesized live with WebAudio (seeded melodies, no samples, no real songs). Separate menu / in-round track + volume. Prefs in ts.music. */
+const MU_TR=[
+ {id:'lounge',n:'Clubhouse Lounge',g:'Lo-fi jazz',bpm:78,root:50,sc:[0,2,3,5,7,9,10],prog:[[0,3,7,10],[5,9,12,15],[-2,2,5,9],[3,7,10,14]],sw:.18,dr:{k:'x.........x.....',s:'....x.......x...',h:'x.x.x.x.x.x.x.x.'},bass:'x.....x.x.......',bw:'triangle',pad:'sine',lead:'triangle',den:.28,cut:1400,free:1},
+ {id:'breeze',n:'Fairway Breeze',g:'Acoustic pop',bpm:104,root:55,sc:[0,2,4,5,7,9,11],prog:[[0,4,7,11],[7,11,14,17],[9,12,16,19],[5,9,12,16]],sw:0,dr:{k:'x.......x.x.....',s:'....x.......x...',h:'..x...x...x...x.'},bass:'x...x...x...x.x.',bw:'triangle',pad:'triangle',lead:'sine',den:.35,cut:2400,free:1},
+ {id:'groove',n:'Back Nine Groove',g:'Funk',bpm:98,root:45,sc:[0,3,5,7,10],prog:[[0,4,7,10],[0,4,7,10],[5,9,12,15],[7,10,14,17]],sw:.08,dr:{k:'x..x..x...x..x..',s:'....x..x....x...',h:'xxxxxxxxxxxxxxxx'},bass:'x..x.xx...x.x.xx',bw:'sawtooth',pad:'square',lead:'square',den:.22,cut:1800,free:1},
+ {id:'synth',n:'Eagle Synthwave',g:'Synthwave',bpm:112,root:45,sc:[0,2,3,5,7,8,10],prog:[[0,3,7,12],[-4,0,3,8],[-7,-3,0,5],[-2,2,5,10]],sw:0,dr:{k:'x...x...x...x...',s:'....x.......x...',h:'..x...x...x...x.'},bass:'xxxxxxxxxxxxxxxx',bw:'sawtooth',pad:'sawtooth',lead:'sawtooth',den:.3,cut:2600,u:'rounds3',uh:'Finish 3 rounds'},
+ {id:'blues',n:'Bunker Blues',g:'Blues shuffle',bpm:92,root:52,sc:[0,3,5,6,7,10],prog:[[0,4,7,10],[5,9,12,15],[0,4,7,10],[7,11,14,17]],sw:.3,dr:{k:'x.....x.x.....x.',s:'....x.......x...',h:'x..x..x..x..x..x'},bass:'x.x.x.x.x.x.x.x.',bw:'triangle',pad:'triangle',lead:'square',den:.3,cut:1600,u:'mini',uh:'Finish a mini-golf course'},
+ {id:'neon',n:'Neon Night Drive',g:'Electro',bpm:124,root:46,sc:[0,3,5,7,10],prog:[[0,3,7,10],[0,3,7,10],[-4,0,3,7],[-2,2,5,9]],sw:0,dr:{k:'x...x...x...x...',s:'....x.......x..x',h:'.x.x.x.x.x.x.x.x'},bass:'.x.x.x.x.x.x.x.x',bw:'square',pad:'sawtooth',lead:'square',den:.4,cut:3200,u:'cart',uh:'Finish a Cart Chase race'},
+ {id:'major',n:'Major Sunday',g:'Cinematic',bpm:70,root:48,sc:[0,2,4,5,7,9,11],prog:[[0,4,7,12],[-3,0,4,9],[5,9,12,17],[7,11,14,19]],sw:0,dr:{k:'x...............',s:'................',h:'................'},bass:'x.......x.......',bw:'sine',pad:'sawtooth',lead:'triangle',den:.18,cut:1200,u:'win',uh:'Win a career event or tour'},
+ {id:'chip',n:'Chiptune Caddie',g:'8-bit',bpm:140,root:60,sc:[0,2,4,7,9],prog:[[0,4,7,12],[5,9,12,17],[7,11,14,19],[0,4,7,12]],sw:0,dr:{k:'x...x...x...x...',s:'....x.......x...',h:'x.x.x.x.x.x.x.x.'},bass:'x.x.x.x.x.x.x.x.',bw:'square',pad:'square',lead:'square',den:.5,cut:5000,u:'drive',uh:'Hit a 280-yard drive'}];
+const MU_TI={};MU_TR.forEach(t=>MU_TI[t.id]=t);
+function muPrefs(){return Object.assign({on:1,menu:'lounge',round:'breeze',vm:.45,vr:.3},store('ts.music')||{})}
+function muSave(p){store('ts.music',p)}
+const MU_UC={};function muUnlocked(t){if(t.free)return true;const c=MU_UC[t.id];if(c&&performance.now()-c.t<5000)return c.v;const v=muUnlocked0(t);MU_UC[t.id]={v,t:performance.now()};return v}
+function muUnlocked0(t){try{const R=recLoad(),st=R.stats||{};
+  if(t.u==='rounds3')return (st.rounds||0)>=3;if(t.u==='mini'){const m=store('ts.mini');return !!(m&&m.best&&Object.keys(m.best).length)}
+  if(t.u==='cart'){const c=ccStore();return Object.values(c.best||{}).some(b=>b&&b.t!=null)}if(t.u==='win')return trLoad().length>0;if(t.u==='drive')return (st.longest||0)>=280}catch(e){}return false}
+const MUS={gain:null,nodes:[],cur:null,step:0,next:0,timer:0,mel:{},n:0,ctx:''};
+function muCtx(){return (G.mode==='menu'||G.mode==='summary'||!G.mode||G.phase==='menu')&&!G.cartOn&&!(typeof MG!=='undefined'&&MG.on)?'menu':'round'}
+function muMel(t){if(MUS.mel[t.id])return MUS.mel[t.id];let h=2166136261;for(const c of t.id)h=Math.imul(h^c.charCodeAt(0),16777619);const R=tnRng(h>>>0);const m=[];let d=2;
+  for(let i=0;i<64;i++){if(R()<t.den&&(i%2===0||R()<.4)){d=Math.max(0,Math.min(t.sc.length*2-1,d+Math.round((R()-.5)*4)));m.push({d,l:R()<.3?3:1})}else m.push(null)}MUS.mel[t.id]=m;return m}
+function muF(n){return 440*Math.pow(2,(n-69)/12)}
+function muNote(ac,t0,dur,f,type,vol,cut,out){const o=ac.createOscillator(),g=ac.createGain(),lp=ac.createBiquadFilter();o.type=type;o.frequency.value=f;lp.type='lowpass';lp.frequency.value=cut;g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.012);g.gain.exponentialRampToValueAtTime(.0001,t0+dur);o.connect(lp);lp.connect(g);g.connect(out);o.start(t0);o.stop(t0+dur+.05)}
+function muDrum(ac,t0,k,out){if(k==='k'){const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(140,t0);o.frequency.exponentialRampToValueAtTime(42,t0+.12);g.gain.setValueAtTime(.55,t0);g.gain.exponentialRampToValueAtTime(.0001,t0+.25);o.connect(g);g.connect(out);o.start(t0);o.stop(t0+.3);return}
+  const s=crSrc(false),f=ac.createBiquadFilter(),g=ac.createGain();f.type=k==='s'?'bandpass':'highpass';f.frequency.value=k==='s'?1800:7000;const L=k==='s'?.16:.04;g.gain.setValueAtTime(k==='s'?.35:.12,t0);g.gain.exponentialRampToValueAtTime(.0001,t0+L);s.connect(f);f.connect(g);g.connect(out);s.start(t0,Math.random()*2);s.stop(t0+L+.02)}
+function muSched(){const ac=AC;if(!ac||ac.state!=='running'||!MUS.cur)return;const t=MUS.cur,sp=60/t.bpm/4;if(MUS.next<ac.currentTime)MUS.next=ac.currentTime+.05;const mel=muMel(t);
+  while(MUS.next<ac.currentTime+.25){const i=MUS.step%64,b=i%16,bar=(i>>4)%4,ch=t.prog[bar];let t0=MUS.next+(i%2?t.sw*sp:0);const out=MUS.gain;
+    if(t.dr.k[b]==='x')muDrum(ac,t0,'k',out);if(t.dr.s[b]==='x')muDrum(ac,t0,'s',out);if(t.dr.h[b]==='x')muDrum(ac,t0,'h',out);
+    if(t.bass[b]==='x')muNote(ac,t0,sp*1.8,muF(t.root-12+ch[0]+(t.id==='synth'&&b%2?12:0)),t.bw,.22,t.cut*.5,out);
+    if(b===0)for(const n of ch)muNote(ac,t0,sp*15,muF(t.root+12+n),t.pad,.045,t.cut*.7,out);
+    const m=mel[i];if(m){const oct=Math.floor(m.d/t.sc.length),deg=t.sc[m.d%t.sc.length];muNote(ac,t0,sp*(m.l+.6),muF(t.root+24+oct*12+deg),t.lead,.09,t.cut,out)}
+    MUS.step++;MUS.n++;MUS.next+=sp}}
+function muSetTrack(id,ctx){const ac=crAC();if(!ac)return;if(!MUS.gain){MUS.gain=ac.createGain();MUS.gain.gain.value=0;MUS.gain.connect(ac.destination)}const t=MU_TI[id];if(!t||!muUnlocked(t))return;
+  if(MUS.cur!==t){MUS.cur=t;MUS.step=0;MUS.next=ac.currentTime+.1}MUS.ctx=ctx}
+function muTick(){try{const p=muPrefs();const ac=AC;if(!ac)return;const ctx=muCtx();const id=ctx==='menu'?p.menu:p.round;const t=MU_TI[id]&&muUnlocked(MU_TI[id])?id:(ctx==='menu'?'lounge':'breeze');
+  if(!MUS.cur||MUS.cur.id!==t||MUS.ctx!==ctx)muSetTrack(t,ctx);if(MUS.gain){const v=p.on?(ctx==='menu'?p.vm:p.vr)*.6:0;MUS.gain.gain.setTargetAtTime(v,ac.currentTime,.4)}muSched()}catch(e){}}
+setInterval(muTick,90);
+function showMusic(){const p=muPrefs();const row=(ctx)=>MU_TR.map(t=>{const ok=muUnlocked(t),sel=p[ctx]===t.id;return `<button data-c="${ctx}" data-t="${t.id}" ${ok?'':'disabled'} style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;width:100%;margin:4px 0;padding:8px 10px;border-radius:10px;border:1px solid ${sel?'#3fe0b0':'#2a3a44'};background:${sel?'rgba(63,224,176,.15)':'#121a20'};color:#fff;font:inherit;cursor:${ok?'pointer':'default'};opacity:${ok?1:.5}"><span><b>${esc(t.n)}</b> <small style="opacity:.7">· ${esc(t.g)}</small></span><small>${ok?(sel?'▶ SELECTED':''):'🔒 '+esc(t.uh)}</small></button>`}).join('');
+  const sl=(id,v,lab)=>`<div style="display:flex;align-items:center;gap:10px;margin:6px 0"><span style="width:130px">${lab}</span><input type="range" id="${id}" min="0" max="100" value="${Math.round(v*100)}" style="flex:1"><span id="${id}V" style="width:40px;text-align:right">${Math.round(v*100)}%</span></div>`;
+  const n=MU_TR.filter(muUnlocked).length;
+  const s=show('scSetup',`<div class="pn" style="max-width:760px"><div class="hdr"><button class="ib" id="muB">‹</button><h2>Music</h2></div><div class="gnote">${n} of ${MU_TR.length} tracks unlocked. All tracks are original and generated live in your browser. Unlock more by playing.</div>
+  <div class="seg" id="muOn" style="margin-top:8px"><button data-v="1" class="${p.on?'sel':''}">Music on</button><button data-v="0" class="${p.on?'':'sel'}">Music off</button></div>
+  <div class="sec">Volume</div>${sl('muVm',p.vm,'Menu music')}${sl('muVr',p.vr,'In-round music')}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div><div class="sec">Menu track</div>${row('menu')}</div><div><div class="sec">In-round track</div>${row('round')}</div></div></div>`);
+  $('muB').onclick=showMenu;$('muOn').onclick=e=>{const b=e.target.closest('button');if(b){const q=muPrefs();q.on=+b.dataset.v;muSave(q);crAC();showMusic()}};
+  for(const [id,k] of[['muVm','vm'],['muVr','vr']])$(id).oninput=e=>{const q=muPrefs();q[k]=+e.target.value/100;muSave(q);$(id+'V').textContent=e.target.value+'%'};
+  s.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{const q=muPrefs();q[b.dataset.c]=b.dataset.t;muSave(q);crAC();showMusic()})}
+{const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{const h=$('mHow');if(h&&!$('mMusic')){const b=document.createElement('button');b.className='btn alt c';b.id='mMusic';b.textContent='Music';b.onclick=showMusic;h.before(b)}}catch(e){console.warn(e)}return out}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
