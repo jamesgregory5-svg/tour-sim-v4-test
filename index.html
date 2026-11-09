@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.31';
+const VERSION='v4.32';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3891,7 +3891,7 @@ function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1
       {/* cup first so walls near the hole don't spit a on-line ball past the cup */
         const ox=x-x1,oy=y-y1,L2=ox*ox+oy*oy||1;let tu=((H.cup.x-x1)*ox+(H.cup.y-y1)*oy)/L2;tu=tu<0?0:tu>1?1:tu;
         const cd=Math.hypot(x1+ox*tu-H.cup.x,y1+oy*tu-H.cup.y),ns=Math.hypot(vx,vy);
-        if(cd<.11&&ns<4.5){x=H.cup.x;y=H.cup.y;stepSunk=1;break}}
+        if(cd<.125&&ns<5){x=H.cup.x;y=H.cup.y;stepSunk=1;break}}
       resolve();
       for(const o of hole.ob)if(o.k==='bump'){const dx=x-o.x,dy=y-o.y,d=Math.hypot(dx,dy),rr=(o.rad||1)+rad;if(d<rr&&d>1e-8){const nxn=dx/d,nyn=dy/d;x=o.x+nxn*rr;y=o.y+nyn*rr;const vn=vx*nxn+vy*nyn;if(vn<0){vx-=2*vn*nxn;vy-=2*vn*nyn;vx+=nxn*8;vy+=nyn*8}}}}
     if(stepSunk){put(H.cup.x,H.cup.y);res.kind='sunk';x=H.cup.x;y=H.cup.y;break}
@@ -3953,7 +3953,7 @@ function mgCamPutt(){const b=G.ball,H=G.H,cup=H.cup;const d=Math.max(.35,Math.hy
 function mgStop2D(){try{MG.on=false;cancelAnimationFrame(MG.raf);if(MG.cv)MG.cv.style.display='none'}catch(e){}G.cartOn=false}
 mgStart=function(ci,hi){mgStop2D();MG.ci=ci;MG.hi=hi||0;MG.card=[];MG.c=MG_COURSES[ci];G.mgOn=1;G.mode='mini';
   hideScreens();$('hud').classList.add('on');mgLoad3D()};
-function mgLoad3D(){const H=mgBuildH(MG.ci,MG.hi);setHole(H);try{if(G.flags)G.flags.forEach(f=>{f.mg=1});}catch(e){}try{if(H.mgTheme==='neon')applyTOD('night',H);else if(H.mgTheme==='ice')applyTOD('morning',H);else if(H.mgTheme==='desert')applyTOD('sunset',H);else applyTOD('midday',H)}catch(e){}G.ball={x:H.tee.x,y:H.tee.y,surf:S_GREEN};G.strokes=0;G.pen=0;G.putts=0;G.ballOn=true;G.aim=Math.atan2(H.cup.y-H.tee.y,H.cup.x-H.tee.x);G.phase='putt';G.club=PUTTER;G.view=0;G.sw=null;G.replay=null;G.R.tracerN=0;
+function mgLoad3D(){const H=mgBuildH(MG.ci,MG.hi);setHole(H);try{if(G.flags)G.flags.forEach(f=>{f.mg=1});}catch(e){}try{if(H.mgTheme==='neon')applyTOD('night',H);else if(H.mgTheme==='ice')applyTOD('morning',H);else if(H.mgTheme==='desert')applyTOD('sunset',H);else applyTOD('midday',H)}catch(e){}G.ball={x:H.tee.x,y:H.tee.y,surf:S_GREEN};G.strokes=0;G.pen=0;G.putts=0;G.ballOn=true;G.aim=Math.atan2(H.cup.y-H.tee.y,H.cup.x-H.tee.x);G.phase='putt';G.club=PUTTER;G.view=0;G.sw=null;G.replay=null;G.R.tracerN=0;G.tracerOn=false;
   G.onShot=null;G.onRest=()=>{try{G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;G.camMode=null;G.cam=mgCamPutt();G.camBl=null;updHUD();updPutt()}catch(e){}if(G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}};G.onHoled=()=>mgFinishHole(false);G.afterRest=()=>{G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.cam=mgCamPutt();setAddress()};try{if(window.WL){WL.on=false;const c=document.getElementById('wlC');if(c)c.style.display='none'}}catch(e){}
   G.phase='putt';G.club=PUTTER;G.view=0;setAddress();G.phase='putt';G.club=PUTTER;try{updClubs();updHUD();updPutt();$('bCard').style.display='none';$('bRep').style.display='none';const mb=$('modeBar');if(mb)mb.style.display='none';const cl=$('clubs');if(cl)cl.style.display='none';const sh=$('shot');if(sh)sh.style.display='none';const lm=$('lm');if(lm)lm.style.display='none';const th=$('third');if(th)th.style.display='none'}catch(e){}
   try{G.cam=null;camSnap()}catch(e){}mgHud();toast(MG.c.name,'Hole '+(MG.hi+1)+' / '+MG.c.holes.length+' · Par '+H.par,2000)}
