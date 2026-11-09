@@ -68,7 +68,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 #shape{position:absolute;right:max(10px,env(safe-area-inset-right));bottom:calc(60px + env(safe-area-inset-bottom));display:flex;gap:3px;pointer-events:auto}
 #shape button{font-size:10px;font-weight:900;letter-spacing:.06em;padding:6px 7px;border-radius:8px;background:rgba(8,14,18,.66);border:1px solid var(--line)}
 #shape button.sel{background:var(--acc);color:#1c1606}
-#hint{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);font-weight:900;letter-spacing:.14em;font-size:13px;opacity:.85;text-shadow:0 2px 8px rgba(0,0,0,.6);text-align:center;transition:opacity .4s;white-space:nowrap}
+#hint{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);font-weight:900;letter-spacing:.14em;font-size:13px;opacity:0;text-shadow:0 2px 8px rgba(0,0,0,.6);text-align:center;transition:opacity .4s;white-space:nowrap}
 #hint small{display:block;font-size:10px;opacity:.75;letter-spacing:.08em;margin-top:4px;font-weight:700}
 #aimb{position:absolute;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);display:flex;gap:6px;pointer-events:auto}
 #acts{position:absolute;left:max(10px,env(safe-area-inset-left));bottom:calc(178px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;pointer-events:auto}
@@ -194,10 +194,10 @@ td.l,th.l{text-align:left}
 <div class="screen" id="scSetup"></div>
 <div class="screen" id="scRecords"></div>
 <div class="screen dim" id="scCard"></div>
-<div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
+<div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.26';
+const VERSION='v4.27';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -393,22 +393,25 @@ const DEM_FAR={"lookaway":{"x0":-3770.18,"y0":-5402.79,"sx":45.0952,"sy":58.7335
 'use strict';
 /* real terrain: USGS 3DEP 1/3" DEM sampled on an 8 x ~10 yd grid, zlib+base64 per course; decoded once at start */
 const DEMS={};let DEM_OK=false;
+function ldrProg(p){try{const bar=document.getElementById('ldrBar'),pct=document.getElementById('ldrPct');const v=Math.max(0,Math.min(100,Math.round(p*100)));if(bar)bar.style.width=v+'%';if(pct)pct.textContent=v+'%'}catch(e){}}
 async function demInit(){
-  if(typeof DecompressionStream==='undefined'){console.warn('no DecompressionStream: flat terrain');return}
-  for(const id in GEO){const d=GEO[id].dem;if(!d)continue;
+  if(typeof DecompressionStream==='undefined'){console.warn('no DecompressionStream: flat terrain');ldrProg(1);return}
+  const ids=Object.keys(GEO).filter(id=>GEO[id].dem);const far=typeof DEM_FAR!=='undefined'?Object.keys(DEM_FAR):[];const tot=Math.max(1,ids.length+far.length);let done=0;const tick=()=>{done++;ldrProg(done/tot)};
+  ldrProg(0);
+  for(const id of ids){const d=GEO[id].dem;
     try{const bin=Uint8Array.from(atob(d.b),c=>c.charCodeAt(0));
       const buf=new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
       const A=new Float32Array(d.nx*d.ny);let p=0;
       for(let j=0;j<d.ny;j++){let v=buf[p]|(buf[p+1]<<8);p+=2;A[j*d.nx]=v;for(let i=1;i<d.nx;i++){let q=buf[p++];if(q>127)q-=256;v+=q;A[j*d.nx+i]=v}}
       for(let i=0;i<A.length;i++)A[i]=d.mn+A[i]*d.q;
-      DEMS[id]={A,x0:d.x0,y0:d.y0,sx:d.sx,sy:d.sy,nx:d.nx,ny:d.ny}}catch(e){console.warn('dem',id,e)}}
-  if(typeof DEM_FAR!=='undefined')for(const id in DEM_FAR){const d=DEM_FAR[id];try{const bin=Uint8Array.from(atob(d.b),c=>c.charCodeAt(0));
+      DEMS[id]={A,x0:d.x0,y0:d.y0,sx:d.sx,sy:d.sy,nx:d.nx,ny:d.ny}}catch(e){console.warn('dem',id,e)}tick()}
+  for(const id of far){const d=DEM_FAR[id];try{const bin=Uint8Array.from(atob(d.b),c=>c.charCodeAt(0));
       const buf=new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
       const A=new Float32Array(d.nx*d.ny);let p=0;
       for(let j=0;j<d.ny;j++){let v=buf[p]|(buf[p+1]<<8);p+=2;A[j*d.nx]=v;for(let i=1;i<d.nx;i++){let q=buf[p++];if(q===128){v=buf[p]|(buf[p+1]<<8);p+=2}else{if(q>127)q-=256;v+=q}A[j*d.nx+i]=v}}
       for(let i=0;i<A.length;i++)A[i]=d.mn+A[i]*d.q;
-      DEMF[id]={A,x0:d.x0,y0:d.y0,sx:d.sx,sy:d.sy,nx:d.nx,ny:d.ny}}catch(e){console.warn('demfar',id,e)}}
-  DEM_OK=Object.keys(DEMS).length>0}
+      DEMF[id]={A,x0:d.x0,y0:d.y0,sx:d.sx,sy:d.sy,nx:d.nx,ny:d.ny}}catch(e){console.warn('demfar',id,e)}tick()}
+  ldrProg(1);DEM_OK=Object.keys(DEMS).length>0}
 const DEMF={};
 function demGrid(D,x,y){const fx=clamp((x-D.x0)/D.sx,0,D.nx-1.001),fy=clamp((y-D.y0)/D.sy,0,D.ny-1.001),i=Math.floor(fx),j=Math.floor(fy),u=fx-i,v=fy-j;
   const at=(a,b)=>D.A[clamp(b,0,D.ny-1)*D.nx+clamp(a,0,D.nx-1)];
@@ -2433,12 +2436,14 @@ const _finishShotCr=finishShot;finishShot=function(){const a=G.anim,H=G.H;let in
 setInterval(()=>{try{const want=G.mode&&G.mode!=='menu'&&G.phase!=='menu'&&crowdLevel()>0&&AC&&AC.state==='running';if(want&&!CRW.amb)ambStart();else if(!want&&CRW.amb)ambStop();if(CRW.master&&AC)CRW.master.gain.setTargetAtTime(crowdLevel(),AC.currentTime,.1)}catch(e){}},500);
 addEventListener('pointerdown',()=>{crAC()},{once:true});addEventListener('keydown',()=>{crAC()},{once:true});
 
-/* swing prompt ("TAP, CLICK OR PRESS SPACE TO SWING") only on the opening drive of a round (first player, hole 1, first stroke) or the first ball of a practice/challenge mode */
-function swingHintOn(){if((G.shotN||0)>0)return false;if(G.mode!=='round')return true;const r=G.round;if(!r||r.i!==0||G.strokes!==0||G.ball.surf!==S_TEE)return false;if(isMP()&&G.mpH&&!G.mpH.every(s=>s.strokes===0))return false;return true}
-{const _ex=executeShot;executeShot=function(){G.shotN=(G.shotN||0)+1;return _ex.apply(this,arguments)};
- const _sr=startRound;startRound=function(){G.shotN=0;return _sr.apply(this,arguments)};
- const _sm=startMode;startMode=function(){G.shotN=0;return _sm.apply(this,arguments)};
- const _rr=resumeRound;resumeRound=function(){G.shotN=0;return _rr.apply(this,arguments)};}
+/* v4.27: swing prompt once ever — persist ts.swingHint so it never returns each hole/round/career resume. Was: in-memory G.shotN reset on startRound/resumeRound, so every new round (and any resume) re-showed it; hole-gate also failed to feel permanent. */
+function swingHintSeen(){return !!store('ts.swingHint')}
+function swingHintDismiss(){store('ts.swingHint',1);G.shotN=(G.shotN||0)+1}
+function swingHintOn(){if(swingHintSeen()||(G.shotN||0)>0)return false;if(G.mode!=='round')return true;const r=G.round;if(!r||r.i!==0||G.strokes!==0||G.ball.surf!==S_TEE)return false;if(isMP()&&G.mpH&&!G.mpH.every(s=>s.strokes===0))return false;return true}
+{const _ex=executeShot;executeShot=function(){swingHintDismiss();return _ex.apply(this,arguments)};
+ const _sr=startRound;startRound=function(){G.shotN=swingHintSeen()?1:0;return _sr.apply(this,arguments)};
+ const _sm=startMode;startMode=function(){G.shotN=swingHintSeen()?1:0;return _sm.apply(this,arguments)};
+ const _rr=resumeRound;resumeRound=function(){G.shotN=swingHintSeen()?1:0;return _rr.apply(this,arguments)};}
 
 /* flagstick in / out (ts.pin, remembered; default in). Pin in: the cup physics lets a firm putt that hits the stick drop; pin out: the stick is removed while putting. */
 function pinWho(){try{const r=G.round;if(r&&r.players&&r.players.length>1&&r.players[G.cur])return String(r.players[G.cur].name||G.cur)}catch(e){}return null}// pass-and-play: each player keeps his own last choice
@@ -3328,7 +3333,7 @@ function wrap(o,s){const g=new T.Group();const inner=o.clone();inner.rotation.x=
 function spawn(H){for(const a of list)scene.remove(a.g);list=[];if(!H||!G.ball)return;const cid=G.round&&G.round.cid||'';const RR=RNG('wl'+cid+(G.round?G.round.i:0)+Date.now());
  const bx=G.ball.x,by=G.ball.y,A=Math.atan2(H.cup.y-by,H.cup.x-bx),D=Math.hypot(H.cup.x-bx,H.cup.y-by);const fwd=(d,s)=>[bx+Math.cos(A)*d-Math.sin(A)*s,by+Math.sin(A)*d+Math.cos(A)*s];
  const inCone=(x,y,d0,d1,deg)=>{const dx=x-bx,dy=y-by,d=Math.hypot(dx,dy);if(d<d0||d>d1)return false;let da=Math.atan2(dy,dx)-A;while(da>Math.PI)da-=6.283;while(da<-Math.PI)da+=6.283;return Math.abs(da)<deg*Math.PI/180};
- const ng=2+Math.floor(RR()*2);for(let i=0;i<ng;i++){/* fly over fairway / approach / green — never parked at the tee */
+ const ng=RR()<.28?(RR()<.55?1:2):0;for(let i=0;i<ng;i++){/* v4.27: birds only now-and-then (~28% of holes), 1–2 when present — not every hole */
    const d0=Math.max(35,Math.min(D*.35,D-25)),d1=Math.max(d0+25,Math.min(D*.9,D-8));const side0=RR.range(-22,22);
    const g=new T.Group();const frames=GF.map(o=>{const c=o.clone();c.rotation.x=Math.PI/2;c.visible=false;g.add(c);return c});g.scale.setScalar(2.6);scene.add(g);
    list.push({k:'gull',g,frames,d0,d1,side0,sideA:RR.range(10,20)*(RR()<.5?-1:1),h:RR.range(9,16),spd:RR.range(.12,.22)*(RR()<.5?-1:1),u:RR(),fp:RR(),glide:0,A,bx,by})}
@@ -3871,21 +3876,24 @@ function mgBuildH(ci,hi){const C=MG_COURSES[ci],H0=C.holes[hi],L=mgXf(C,H0),T=MG
     if(o.k==='sand')F.bk.push([[o.r[0],o.r[1]],[o.r[0]+o.r[2],o.r[1]],[o.r[0]+o.r[2],o.r[1]+o.r[3]],[o.r[0],o.r[1]+o.r[3]]])}
   const cup={x:L.cup[0],y:L.cup[1],pin:1},tee={x:L.tee[0],y:L.tee[1]};
   return{crk:[],blds:[],inBld:()=>false,addTree:()=>{},rot:0,course:{id:'mini-'+C.id,name:C.name,style:'parkland',tees:[{n:'Tee',y:[10]}],par:[L.par]},hi,par:L.par,yards:Math.round(Math.hypot(L.cup[0]-L.tee[0],L.cup[1]-L.tee[1])),teeIdx:0,line:[[tee.x,tee.y],[cup.x,cup.y]],X0,Y0,X1,Y1,W,H:Hh,S,HT,NW:W,NH:Hh,hAt,demAt,surfAt,slopeAt,gradAt:()=>[0,0],greenH:()=>0,greenG:()=>[0,0],gm:{cx:L.cup[0],cy:L.cup[1],tx:0,ty:0,b:[[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0]]},G:null,F,sea:[],cup,trees:[],treeHit:()=>null,st,woodMask:new Uint8Array(W*Hh),tee,pews:null,towers:[],allTrees:[],mg:L,mgTheme:C.theme,mgT0:performance.now()/1000}}
-function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1000-(H.mgT0||0),segs=mgSegsNow(hole,t0),rad=.12;
-  let x=x0,y=y0,vx=Math.cos(hd)*v*YD,vy=Math.sin(hd)*v*YD;const dt=1/60;let n=0,tpCd=0;const put=(a,b,c)=>{if(rec&&n<rec.length-3){rec[n++]=a;rec[n++]=b;rec[n++]=c}};
-  const res={kind:'rest',x,y,n:0};
-  for(let it=0;it<1800;it++){const s=H.surfAt(x,y);if(s===S_WATER){res.kind='water';res.x=x;res.y=y;break}if(s===S_OB){res.kind='ob';res.x=x;res.y=y;break}
-    let ax=0,ay=0;{const g=H.slopeAt(x,y);ax=g.x;ay=g.y}let fr=CR[s]||CR[S_GREEN];if(H.mgTheme==='ice'&&s===S_GREEN)fr*=.35;
+function mgHitSeg(nx,ny,vx,vy,sg,rad){const[a,c]=sg;const ex=c[0]-a[0],ey=c[1]-a[1],L2=ex*ex+ey*ey||1;let u=((nx-a[0])*ex+(ny-a[1])*ey)/L2;u=u<0?0:u>1?1:u;const px=a[0]+ex*u,py=a[1]+ey*u;let nnx=nx-px,nny=ny-py,d=Math.hypot(nnx,nny);
+  if(!(d<rad&&d>1e-8))return null;nnx/=d;nny/=d;const vn=vx*nnx+vy*nny;const e=sg[2]?1.05:.88;return{nx:px+nnx*rad,ny:py+nny*rad,vx:vn<0?vx-(1+e)*vn*nnx:vx,vy:vn<0?vy-(1+e)*vn*nny:vy,kick:!!sg[2],nnx,nny}}
+function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1000-(H.mgT0||0),segs=mgSegsNow(hole,t0),rad=.2;
+  let x=x0,y=y0,vx=Math.cos(hd)*v*YD,vy=Math.sin(hd)*v*YD;const dt=1/60;let n=0,tpCd=0;const put=(a,b)=>{if(rec&&n<rec.length-3){rec[n++]=a;rec[n++]=b;rec[n++]=0}};
+  const res={kind:'rest',x,y,n:0};const resolve=()=>{for(let k=0;k<4;k++){let hit=null;for(const sg of segs){const h=mgHitSeg(x,y,vx,vy,sg,rad);if(h)hit=h}if(!hit)break;x=hit.nx;y=hit.ny;vx=hit.vx;vy=hit.vy;if(hit.kick){vx+=hit.nnx*6;vy+=hit.nny*6}}
+    if(H.surfAt(x,y)===S_OB){/* push back inside along nearest wall normal instead of OOB */
+      let best=null,bd=1e9;for(const sg of segs){if(sg[2])continue;const[a,c]=sg;const ex=c[0]-a[0],ey=c[1]-a[1],L2=ex*ex+ey*ey||1;let u=((x-a[0])*ex+(y-a[1])*ey)/L2;u=u<0?0:u>1?1:u;const px=a[0]+ex*u,py=a[1]+ey*u,d=Math.hypot(x-px,y-py);if(d<bd){bd=d;best={px,py,dx:x-px,dy:y-py}}}
+      if(best&&bd>1e-8){let nx=best.dx/bd,ny=best.dy/bd;x=best.px+nx*(rad+.02);y=best.py+ny*(rad+.02);const vn=vx*nx+vy*ny;if(vn>0){vx-=2*vn*nx;vy-=2*vn*ny}vx*=.75;vy*=.75}else{vx*=-.7;vy*=-.7}}};
+  for(let it=0;it<1800;it++){const s0=H.surfAt(x,y);if(s0===S_WATER){res.kind='water';res.x=x;res.y=y;break}
+    let ax=0,ay=0;{const g=H.slopeAt(x,y);ax=g.x;ay=g.y}let fr=CR[s0]||CR[S_GREEN];if(H.mgTheme==='ice'&&s0===S_GREEN)fr*=.35;
     vx+=ax*dt;vy+=ay*dt;const sp=Math.hypot(vx,vy),dec=fr*GRAV*YD;if(sp<1e-4)break;const ns=sp-dec*dt;if(ns<=0||(ns<.05&&Math.hypot(ax,ay)<dec*.9))break;vx*=ns/sp;vy*=ns/sp;
-    let nx=x+vx*dt,ny=y+vy*dt;
-    for(const sg of segs){const[a,c]=sg;const ex=c[0]-a[0],ey=c[1]-a[1],L2=ex*ex+ey*ey||1;let u=((nx-a[0])*ex+(ny-a[1])*ey)/L2;u=u<0?0:u>1?1:u;const px=a[0]+ex*u,py=a[1]+ey*u;let nnx=nx-px,nny=ny-py,d=Math.hypot(nnx,nny);
-      if(d<rad&&d>1e-8){nnx/=d;nny/=d;nx=px+nnx*rad;ny=py+nny*rad;const vn=vx*nnx+vy*nny;if(vn<0){const e=sg[2]?1.05:.82;vx-=(1+e)*vn*nnx;vy-=(1+e)*vn*nny;if(sg[2]){vx+=nnx*6;vy+=nny*6}}}}
-    for(const o of hole.ob)if(o.k==='bump'){const dx=nx-o.x,dy=ny-o.y,d=Math.hypot(dx,dy),rr=(o.rad||1)+rad;if(d<rr&&d>1e-8){const nxn=dx/d,nyn=dy/d;nx=o.x+nxn*rr;ny=o.y+nyn*rr;const vn=vx*nxn+vy*nyn;if(vn<0){vx-=2*vn*nxn;vy-=2*vn*nyn;vx+=nxn*8;vy+=nyn*8}}}
-    tpCd-=dt;for(const o of hole.ob)if(o.k==='tp'&&tpCd<=0){for(const[p,q]of[[o.a,o.b],[o.b,o.a]])if(Math.hypot(nx-p[0],ny-p[1])<.9){nx=q[0];ny=q[1];tpCd=.55;break}}
-    x=nx;y=ny;put(x,y,0);const cup=H.cup,dx=cup.x-x,dy=cup.y-y,dc=Math.hypot(dx,dy),v2=Math.hypot(vx,vy);
-    if(dc<.066&&v2<1.7){put(cup.x,cup.y,0);res.kind='sunk';x=cup.x;y=cup.y;break}
+    const steps=6;for(let st=0;st<steps;st++){x+=vx*(dt/steps);y+=vy*(dt/steps);resolve();
+      for(const o of hole.ob)if(o.k==='bump'){const dx=x-o.x,dy=y-o.y,d=Math.hypot(dx,dy),rr=(o.rad||1)+rad;if(d<rr&&d>1e-8){const nxn=dx/d,nyn=dy/d;x=o.x+nxn*rr;y=o.y+nyn*rr;const vn=vx*nxn+vy*nyn;if(vn<0){vx-=2*vn*nxn;vy-=2*vn*nyn;vx+=nxn*8;vy+=nyn*8}}}}
+    tpCd-=dt;for(const o of hole.ob)if(o.k==='tp'&&tpCd<=0){for(const[p,q]of[[o.a,o.b],[o.b,o.a]])if(Math.hypot(x-p[0],y-p[1])<.9){x=q[0];y=q[1];tpCd=.55;break}}
+    put(x,y);const cup=H.cup,dx=cup.x-x,dy=cup.y-y,dc=Math.hypot(dx,dy),v2=Math.hypot(vx,vy);
+    if(dc<.066&&v2<1.7){put(cup.x,cup.y);res.kind='sunk';x=cup.x;y=cup.y;break}
     if(dc<.1&&v2<.75&&dc>1e-4){vx+=dx/dc*2.2*dt;vy+=dy/dc*2.2*dt}}
-  res.x=x;res.y=y;res.n=n/3;res.surf=H.surfAt(x,y);return res}
+  res.x=x;res.y=y;res.n=n/3;res.surf=H.surfAt(x,y);if(res.surf===S_OB){res.kind='rest';res.surf=S_GREEN}return res}
 {const _pr=puttRoll;puttRoll=function(x,y,hd,v,surfAt,slopeAt,cup,rec){if(G.mgOn)return mgPuttRoll(x,y,hd,v,rec);return _pr.apply(this,arguments)}}
 function mgEnsureBox(R){if(R.mgBox)return R.mgBox;const P=[],N=[],I=[];
   const face=(ax,ay,az,nx,ny,nz)=>{const ox=nx?0:1,oy=ny?0:1,oz=nz?0:1;const c=[[ax,ay,az],[ax+ox,ay+oy*(nx||ny?0:1)+(!nx&&!ny?0:oy),az+oz*(nx||nz?0:1)+(!nx&&!nz?0:oz)]];
@@ -3899,22 +3907,24 @@ function mgDraw3D(R,draw){const H=G.H;if(!H||!H.mg)return;const hole=H.mg,t=perf
   const parse=c=>{const a=mgParseHex(c);return a.map(v=>v/255)};const rail=parse(T.rail),railS=parse(T.railS);const box=mgEnsureBox(R),segs=mgSegsNow(hole,t);
   const wallH=1.05,thick=.2;
   for(const sg of segs){if(sg[2])continue;const[a,b]=sg;const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,len=Math.hypot(b[0]-a[0],b[1]-a[1])||.01,ang=Math.atan2(b[1]-a[1],b[0]-a[0]);
-    const c=Math.cos(ang),s=Math.sin(ang);const M=new Float32Array([c*len,s*len,0,0,-s*thick,c*thick,0,0,0,0,wallH,0,mx-c*len/2+s*thick/2,my-s*len/2-c*thick/2,0,1]);
-    draw(box,M,railS,0,.6);const M2=new Float32Array([c*len,s*len,0,0,-s*thick*.65,c*thick*.65,0,0,0,0,.18,0,mx-c*len/2+s*thick*.32,my-s*len/2-c*thick*.32,wallH,1]);draw(box,M2,rail,0,H.mgTheme==='neon'?1.4:.85)}
-  for(const o of hole.ob){if(o.k==='bump'){const col=H.mgTheme==='neon'?[.25,.85,1]:H.mgTheme==='ice'?[.95,.98,1]:H.mgTheme==='desert'?[.25,.55,.3]:[.9,.25,.2];const r=o.rad||1.2;const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.sphere,TRS(o.x,o.y,r*.9,r,r,r),col,0,.75)}
-    if(o.k==='wm'){const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.cyl,TRS(o.x,o.y,0,.28,.28,2.8),H.mgTheme==='neon'?[.4,.15,.55]:[.55,.3,.18],0,.5);
-      for(let k=0;k<4;k++){const a=t*o.spd+k*Math.PI/2,c=Math.cos(a),s=Math.sin(a);const M=new Float32Array([c*o.len,s*o.len,0,0,-s*.1,c*.1,0,0,0,0,.12,0,o.x-c*o.len/2,o.y-s*o.len/2,2.7,1]);draw(box,M,H.mgTheme==='neon'?[.25,.8,1]:[.9,.85,.7],0,.9)}}
+    const c=Math.cos(ang),s=Math.sin(ang);const z0=H.hAt(mx,my);const M=new Float32Array([c*len,s*len,0,0,-s*thick,c*thick,0,0,0,0,wallH,0,mx-c*len/2+s*thick/2,my-s*len/2-c*thick/2,z0,1]);
+    draw(box,M,railS,0,.6);const M2=new Float32Array([c*len,s*len,0,0,-s*thick*.65,c*thick*.65,0,0,0,0,.18,0,mx-c*len/2+s*thick*.32,my-s*len/2-c*thick*.32,z0+wallH,1]);draw(box,M2,rail,0,H.mgTheme==='neon'?1.4:.85)}
+  for(const o of hole.ob){if(o.k==='bump'){const col=H.mgTheme==='neon'?[.25,.85,1]:H.mgTheme==='ice'?[.95,.98,1]:H.mgTheme==='desert'?[.25,.55,.3]:[.9,.25,.2];const r=o.rad||1.2;const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.sphere,TRS(o.x,o.y,H.hAt(o.x,o.y)+r*.85,r,r,r),col,0,.75)}
+    if(o.k==='wm'){const z0=H.hAt(o.x,o.y);const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);
+      draw(box,new Float32Array([.7,0,0,0,0,.7,0,0,0,0,.12,0,o.x-.35,o.y-.35,z0,1]),H.mgTheme==='neon'?[.35,.12,.5]:[.4,.22,.12],0,.4);/* footing on ground */
+      draw(R.cyl,TRS(o.x,o.y,z0,.28,.28,2.8),H.mgTheme==='neon'?[.4,.15,.55]:[.55,.3,.18],0,.5);
+      for(let k=0;k<4;k++){const a=t*o.spd+k*Math.PI/2,c=Math.cos(a),s=Math.sin(a);const M=new Float32Array([c*o.len,s*o.len,0,0,-s*.1,c*.1,0,0,0,0,.12,0,o.x-c*o.len/2,o.y-s*o.len/2,z0+2.7,1]);draw(box,M,H.mgTheme==='neon'?[.25,.8,1]:[.9,.85,.7],0,.9)}}
     if(o.k==='tp'){for(const[p,col]of[[o.a,[.25,.8,1]],[o.b,[1,.45,.2]]]){const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.ringM,TRS(p[0],p[1],.04,1.15,1.15,.1),col,0,1.2)}}}
   /* moving blocks */
   for(const o of hole.ob)if(o.k==='mov'){const s=Math.sin(t*o.spd)*.5+.5,x=o.x+o.dx*s,y=o.y+o.dy*s;const M=new Float32Array([o.w,0,0,0,0,o.h,0,0,0,0,1.1,0,x,y,0,1]);draw(box,M,railS,0,.7)}}
-{const _gd=glDraw;glDraw=function(R,cam,S){const r=_gd.apply(this,arguments);try{if(G.mgOn&&R.hole){const p=R.pMesh,u=p.u,gl=R.gl;gl.useProgram(p.p);gl.uniform1f(u.uBallD,0);gl.disable(gl.CULL_FACE);
+{const _gd=glDraw;glDraw=function(R,cam,S){if(G.mgOn&&S&&S.ballPos&&G.H){const z=G.H.hAt(S.ballPos[0],S.ballPos[1]);S.ballPos[2]=z;S.ballBoost=.4}const r=_gd.apply(this,arguments);try{if(G.mgOn&&R.hole){const p=R.pMesh,u=p.u,gl=R.gl;gl.useProgram(p.p);gl.uniform1f(u.uBallD,0);gl.disable(gl.CULL_FACE);
   const draw=(m,M,c,flag,em)=>{if(!m)return;gl.uniformMatrix4fv(u.uM,false,M);gl.uniform3fv(u.uC,c);gl.uniform1f(u.uFlag,flag||0);gl.uniform1f(u.uEmis,em||0);gl.bindVertexArray(m.v);gl.drawElements(gl.TRIANGLES,m.n,m.it,0)};
   mgDraw3D(R,draw);gl.enable(gl.CULL_FACE)}}catch(e){window.MGerr=String(e&&e.message||e)}return r}}
 function mgStop2D(){try{MG.on=false;cancelAnimationFrame(MG.raf);if(MG.cv)MG.cv.style.display='none'}catch(e){}G.cartOn=false}
 mgStart=function(ci,hi){mgStop2D();MG.ci=ci;MG.hi=hi||0;MG.card=[];MG.c=MG_COURSES[ci];G.mgOn=1;G.mode='mini';
   hideScreens();$('hud').classList.add('on');mgLoad3D()};
 function mgLoad3D(){const H=mgBuildH(MG.ci,MG.hi);setHole(H);try{if(H.mgTheme==='neon')applyTOD('night',H);else if(H.mgTheme==='ice')applyTOD('morning',H);else if(H.mgTheme==='desert')applyTOD('sunset',H);else applyTOD('midday',H)}catch(e){}G.ball={x:H.tee.x,y:H.tee.y,surf:S_GREEN};G.strokes=0;G.pen=0;G.putts=0;G.ballOn=true;G.aim=Math.atan2(H.cup.y-H.tee.y,H.cup.x-H.tee.x);G.phase='putt';G.club=PUTTER;G.view=0;G.sw=null;G.replay=null;G.R.tracerN=0;
-  G.onShot=null;G.onRest=()=>{if(G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}};G.onHoled=()=>mgFinishHole(false);try{if(window.WL){WL.on=false;const c=document.getElementById('wlC');if(c)c.style.display='none'}}catch(e){}
+  G.onShot=null;G.onRest=()=>{try{G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.phase='putt';G.club=PUTTER;G.view=0;G.cam=null;camSnap();updHUD();updPutt()}catch(e){}if(G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}};G.onHoled=()=>mgFinishHole(false);try{if(window.WL){WL.on=false;const c=document.getElementById('wlC');if(c)c.style.display='none'}}catch(e){}
   G.phase='putt';G.club=PUTTER;G.view=0;setAddress();G.phase='putt';G.club=PUTTER;try{updClubs();updHUD();updPutt();$('bCard').style.display='none';$('bRep').style.display='none';const mb=$('modeBar');if(mb)mb.style.display='none';const cl=$('clubs');if(cl)cl.style.display='none';const sh=$('shot');if(sh)sh.style.display='none'}catch(e){}
   try{G.cam=null;camSnap()}catch(e){}mgHud();toast(MG.c.name,'Hole '+(MG.hi+1)+' / '+MG.c.holes.length+' · Par '+H.par,2000)}
 function mgHud(){try{$('bHn').textContent='HOLE '+(MG.hi+1);$('bName').textContent=MG.c.name;const tot=MG.card.reduce((a,v)=>a+(v||0),0);let p=0;for(let i=0;i<MG.card.length;i++)if(MG.card[i])p+=MG.c.holes[i].par;const d=tot-p;$('bPar').textContent='PAR '+G.H.par+' · '+tot+' ('+(d===0?'E':d>0?'+'+d:''+d)+')';$('bSc').textContent=''}catch(e){}}

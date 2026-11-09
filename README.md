@@ -1,6 +1,6 @@
 # Tour Sim v4 test
 
-Current: v4.26 (3D mini-golf in WebGL + real putting). Password gate unchanged.
+Current: v4.27 (swing-hint stays dismissed; mini-golf walls/cam/ball/windmills; thinner birds; loading % bar). Password gate unchanged. Rival chat not in this build.
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
@@ -17,3 +17,4 @@ Current: v4.26 (3D mini-golf in WebGL + real putting). Password gate unchanged.
 - v4.24: Announcer — spoken comments on notable shots (Web Speech), on/off + volume, Announcer screen near Music.
 - v4.25: Wildlife birds fly along the fairway/green corridor (no longer circling near the tee).
 - v4.26: Mini-golf rebuilt in Tour Sim 3D WebGL with the real putter stroke/camera (2D play canvas removed); five courses/themes/scoring kept.
+- v4.27: Persist swing how-to dismiss across holes/rounds; mini-golf solid walls + putt cam after bounce + ball/windmills on ground; birds only sometimes; loading % progress bar. (Rival chat still WIP, not shipped.)
