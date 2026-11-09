@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.29';
+const VERSION='v4.30';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3907,7 +3907,7 @@ function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1
         else if(dc<.16&&ns<1.2){put(cup.x,cup.y);res.kind='sunk';x=cup.x;y=cup.y;sunk=1}
         else if(dc<.18&&ns<.95&&dc>1e-4){vx+=dx/dc*3.4*dt;vy+=dy/dc*3.4*dt}}}
     if(sunk)break}
-  if(res.kind!=='sunk'&&Math.hypot(H.cup.x-x,H.cup.y-y)<.14){put(H.cup.x,H.cup.y);res.kind='sunk';x=H.cup.x;y=H.cup.y}
+  if(res.kind!=='sunk'&&Math.hypot(H.cup.x-x,H.cup.y-y)<.17){put(H.cup.x,H.cup.y);res.kind='sunk';x=H.cup.x;y=H.cup.y}
   res.x=x;res.y=y;res.n=n/3;res.surf=H.surfAt(x,y);if(res.surf===S_OB){res.kind='rest';res.surf=S_GREEN}return res}
 {const _pr=puttRoll;puttRoll=function(x,y,hd,v,surfAt,slopeAt,cup,rec){if(G.mgOn)return mgPuttRoll(x,y,hd,v,rec);return _pr.apply(this,arguments)}}
 function mgEnsureBox(R){if(R.mgBox)return R.mgBox;const P=[],N=[],I=[];
@@ -3950,9 +3950,9 @@ function mgCamPutt(){const b=G.ball,H=G.H,cup=H.cup;const d=Math.max(.35,Math.hy
 function mgStop2D(){try{MG.on=false;cancelAnimationFrame(MG.raf);if(MG.cv)MG.cv.style.display='none'}catch(e){}G.cartOn=false}
 mgStart=function(ci,hi){mgStop2D();MG.ci=ci;MG.hi=hi||0;MG.card=[];MG.c=MG_COURSES[ci];G.mgOn=1;G.mode='mini';
   hideScreens();$('hud').classList.add('on');mgLoad3D()};
-function mgLoad3D(){const H=mgBuildH(MG.ci,MG.hi);setHole(H);try{if(H.mgTheme==='neon')applyTOD('night',H);else if(H.mgTheme==='ice')applyTOD('morning',H);else if(H.mgTheme==='desert')applyTOD('sunset',H);else applyTOD('midday',H)}catch(e){}G.ball={x:H.tee.x,y:H.tee.y,surf:S_GREEN};G.strokes=0;G.pen=0;G.putts=0;G.ballOn=true;G.aim=Math.atan2(H.cup.y-H.tee.y,H.cup.x-H.tee.x);G.phase='putt';G.club=PUTTER;G.view=0;G.sw=null;G.replay=null;G.R.tracerN=0;
+function mgLoad3D(){const H=mgBuildH(MG.ci,MG.hi);setHole(H);try{if(G.flags)G.flags.forEach(f=>{f.mg=1});}catch(e){}try{if(H.mgTheme==='neon')applyTOD('night',H);else if(H.mgTheme==='ice')applyTOD('morning',H);else if(H.mgTheme==='desert')applyTOD('sunset',H);else applyTOD('midday',H)}catch(e){}G.ball={x:H.tee.x,y:H.tee.y,surf:S_GREEN};G.strokes=0;G.pen=0;G.putts=0;G.ballOn=true;G.aim=Math.atan2(H.cup.y-H.tee.y,H.cup.x-H.tee.x);G.phase='putt';G.club=PUTTER;G.view=0;G.sw=null;G.replay=null;G.R.tracerN=0;
   G.onShot=null;G.onRest=()=>{try{G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;G.camMode=null;G.cam=mgCamPutt();G.camBl=null;updHUD();updPutt()}catch(e){}if(G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}};G.onHoled=()=>mgFinishHole(false);G.afterRest=()=>{G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;G.aim=Math.atan2(G.H.cup.y-G.ball.y,G.H.cup.x-G.ball.x);G.cam=mgCamPutt();setAddress()};try{if(window.WL){WL.on=false;const c=document.getElementById('wlC');if(c)c.style.display='none'}}catch(e){}
-  G.phase='putt';G.club=PUTTER;G.view=0;setAddress();G.phase='putt';G.club=PUTTER;try{updClubs();updHUD();updPutt();$('bCard').style.display='none';$('bRep').style.display='none';const mb=$('modeBar');if(mb)mb.style.display='none';const cl=$('clubs');if(cl)cl.style.display='none';const sh=$('shot');if(sh)sh.style.display='none'}catch(e){}
+  G.phase='putt';G.club=PUTTER;G.view=0;setAddress();G.phase='putt';G.club=PUTTER;try{updClubs();updHUD();updPutt();$('bCard').style.display='none';$('bRep').style.display='none';const mb=$('modeBar');if(mb)mb.style.display='none';const cl=$('clubs');if(cl)cl.style.display='none';const sh=$('shot');if(sh)sh.style.display='none';const lm=$('lm');if(lm)lm.style.display='none';const th=$('third');if(th)th.style.display='none'}catch(e){}
   try{G.cam=null;camSnap()}catch(e){}mgHud();toast(MG.c.name,'Hole '+(MG.hi+1)+' / '+MG.c.holes.length+' · Par '+H.par,2000)}
 function mgHud(){try{$('bHn').textContent='HOLE '+(MG.hi+1);$('bName').textContent=MG.c.name;const tot=MG.card.reduce((a,v)=>a+(v||0),0);let p=0;for(let i=0;i<MG.card.length;i++)if(MG.card[i])p+=MG.c.holes[i].par;const d=tot-p;$('bPar').textContent='PAR '+G.H.par+' · '+tot+' ('+(d===0?'E':d>0?'+'+d:''+d)+')';$('bSc').textContent=''}catch(e){}}
 function mgFinishHole(pu){const H=MG.c.holes[MG.hi],s=pu?MG_MAXS:G.strokes;MG.card[MG.hi]=s;toast(s===1?'HOLE IN ONE!':(MG_NM[s-H.par]||((s-H.par)>0?'+'+(s-H.par):''+(s-H.par))),s+' stroke'+(s===1?'':'s'),1700);
@@ -3963,7 +3963,7 @@ function mgResults3D(){const C=MG.c,par=C.holes.reduce((a,h)=>a+h.par,0),tot=MG.
   <table style="width:100%;border-collapse:collapse;text-align:center;margin-top:10px;font-size:15px"><tr style="opacity:.7"><td>Hole</td>${C.holes.map((h,i)=>`<td>${i+1}</td>`).join('')}<td>Tot</td></tr><tr><td style="opacity:.7">Par</td>${C.holes.map(h=>`<td>${h.par}</td>`).join('')}<td>${par}</td></tr><tr style="font-weight:800"><td style="opacity:.7">You</td>${MG.card.map((v,i)=>`<td style="color:${v<C.holes[i].par?'#3fe0b0':v>C.holes[i].par?'#ff9a6a':'#fff'}">${v}</td>`).join('')}<td>${tot}</td></tr></table>
   <button class="btn" id="mgAg" style="margin-top:14px">Play again</button><button class="btn alt" id="mgCs">Choose another course</button><button class="btn alt c" id="mgMn">Main menu</button></div>`);
   $('mgAg').onclick=()=>mgStart(MG.ci);$('mgCs').onclick=()=>{G.mgOn=0;showMiniCourses()};$('mgMn').onclick=()=>{G.mgOn=0;G.last=0;showMenu()}}
-mgExit=function(){G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');mgStop2D();showMiniCourses()};
+mgExit=function(){G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');try{const lm=$('lm');if(lm)lm.style.display=''}catch(e){}mgStop2D();showMiniCourses()};
 {const _sm=showMenu;showMenu=function(){if(G.mgOn){G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');mgStop2D()}return _sm.apply(this,arguments)}}
 addEventListener('keydown',e=>{if(G.mgOn&&e.code==='Escape'){e.stopPropagation();mgExit()}},true);
 {const _sa=setAddress;setAddress=function(){const r=_sa.apply(this,arguments);if(G.mgOn){G.phase='putt';G.club=PUTTER;G.view=0;G.camBl=null;G.camYaw=null;try{G.cam=mgCamPutt();updClubs();updHUD();mgHud()}catch(e){}}return r}}
@@ -3973,6 +3973,14 @@ addEventListener('keydown',e=>{if(G.mgOn&&e.code==='Escape'){e.stopPropagation()
 
 /* v4.29: mini-golf putt cam — keep eye on the green, look down at ball/cup (fixes sky-only view after wall rests) */
 {const _ca=camAddress;camAddress=function(){if(G.mgOn&&G.H&&G.ball&&(G.phase==='putt'||G.club===PUTTER||G.phase==='address'))return mgCamPutt();return _ca.apply(this,arguments)}}
+
+/* v4.30: mini-golf putt feel — tame overspeed on short holes; keep cup sticky; quieter HUD */
+{const _ep=executePutt;executePutt=function(inp){if(!G.mgOn)return _ep.apply(this,arguments);
+  const b=G.ball,H=G.H,d=Math.hypot(H.cup.x-b.x,H.cup.y-b.y);let ft=Number.isFinite(inp.ft)?inp.ft:d*3;
+  /* soft-cap power so a full meter stroke on a 20yd lane does not nuke through rails as often */
+  const cap=Math.max(8,d*3*1.35+4);ft=Math.min(ft,cap);
+  return _ep.call(this,Object.assign({},inp,{ft}));}
+}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
