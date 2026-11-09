@@ -1,6 +1,6 @@
 # Tour Sim v4 test
 
-Current: v4.38 (PCC Wissahickon + Plainfield courses; course folders). Password unchanged.
+Current: v4.39 (PCC+Plainfield far terrain + course bios; folders). Password unchanged.
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
@@ -29,3 +29,4 @@ Current: v4.38 (PCC Wissahickon + Plainfield courses; course folders). Password 
 - v4.36: Bigger multi-wave hole explosions (more sparks, second bang, dual shock rings).
 - v4.37: Course select folders — Local, Top ranked, Links & dunes, Coastal, Parkland, All.
 - v4.38: Added Philadelphia Cricket Club (Wissahickon) and Plainfield Country Club with real OSM + USGS DEM.
+- v4.39: Far DEM horizons + course bios for PCC and Plainfield.
