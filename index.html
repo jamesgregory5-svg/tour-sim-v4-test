@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.25';
+const VERSION='v4.26';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3832,6 +3832,107 @@ function showAnn(){const p=annPrefs();
 {const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{const m=$('mMusic');if(m&&!$('mAnn')){const b=document.createElement('button');b.className='btn alt c';b.id='mAnn';b.textContent='Announcer';b.onclick=showAnn;m.after(b)}}catch(e){}return out}}
 {const _mu=showMusic;showMusic=function(){const r=_mu.apply(this,arguments);try{const n=document.querySelector('#scSetup .gnote');if(n&&!$('muAnnL')){const a=document.createElement('div');a.id='muAnnL';a.style.cssText='margin-top:10px';a.innerHTML='<button class="btn alt" id="muAnn" style="margin:0">Announcer settings</button>';n.after(a);$('muAnn').onclick=showAnn}}catch(e){}return r}}
 try{if(window.speechSynthesis)speechSynthesis.getVoices()}catch(e){}
+
+/* v4.26: Mini-golf in Tour Sim 3D WebGL + real putting (camera/meter/stroke). 2D play canvas disabled. Keeps 5 courses, scoring, ts.mini. */
+const MG_SC=.55;
+function mgPip(p,P){let c=0;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1]+1e-12)+a[0])c^=1}return !!c}
+function mgInR(p,r){return p[0]>=r[0]&&p[0]<=r[0]+r[2]&&p[1]>=r[1]&&p[1]<=r[1]+r[3]}
+function mgXf(C,H0){const tee=H0.tee,cup=H0.cup;const ang=Math.atan2(cup[0]-tee[0],-(cup[1]-tee[1]));
+  const ca=Math.cos(-ang-Math.PI/2),sa=Math.sin(-ang-Math.PI/2);
+  const xf=p=>{const x=(p[0]-tee[0])*MG_SC,y=(p[1]-tee[1])*MG_SC;return[x*ca-y*sa,x*sa+y*ca]};
+  const poly=H0.poly.map(xf),teeW=xf(tee),cupW=xf(cup);
+  const ob=H0.ob.map(o=>{const c=Object.assign({},o);
+    if(Array.isArray(o.r)){const a=xf([o.r[0],o.r[1]]),b=xf([o.r[0]+o.r[2],o.r[1]+o.r[3]]);c.r=[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1])]}
+    if(o.p)c.p=o.p.map(xf);
+    if(o.x!=null){const q=xf([o.x,o.y]);c.x=q[0];c.y=q[1];c.rad=(typeof o.r==='number'?o.r:2)*MG_SC;if(o.len)c.len=o.len*MG_SC;if(o.w){c.w=o.w*MG_SC;c.h=o.h*MG_SC;c.dx=(o.dx||0)*MG_SC;c.dy=(o.dy||0)*MG_SC}}
+    if(o.a){c.a=xf(o.a);c.b=xf(o.b)}return c});
+  return{poly,tee:teeW,cup:cupW,ob,par:H0.par,theme:C.theme,name:C.name}}
+function mgSegsNow(hole,t){const S=[];const add=P=>{for(let i=0;i<P.length;i++)S.push([P[i],P[(i+1)%P.length]])};add(hole.poly);
+  for(const o of hole.ob){if(o.k==='block')add(o.p);else if(o.k==='mov'){const s=Math.sin(t*o.spd)*.5+.5,x=o.x+o.dx*s,y=o.y+o.dy*s;add([[x,y],[x+o.w,y],[x+o.w,y+o.h],[x,y+o.h]])}
+    else if(o.k==='wm'){for(const a0 of[0,Math.PI/2]){const a=a0+t*o.spd,dx=Math.cos(a)*o.len,dy=Math.sin(a)*o.len;S.push([[o.x-dx,o.y-dy],[o.x+dx,o.y+dy],1])}}}return S}
+function mgParseHex(c){if(c&&c[0]==='#')return[parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)];return[63,170,76]}
+function mgHx(a){return'#'+a.map(v=>('0'+Math.round(clamp(v,0,255)).toString(16)).slice(-2)).join('')}
+function mgBuildH(ci,hi){const C=MG_COURSES[ci],H0=C.holes[hi],L=mgXf(C,H0),T=MG_THEMES[C.theme];
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;for(const p of L.poly){minx=Math.min(minx,p[0]);miny=Math.min(miny,p[1]);maxx=Math.max(maxx,p[0]);maxy=Math.max(maxy,p[1])}
+  const pad=8,X0=Math.floor(minx-pad),Y0=Math.floor(miny-pad),X1=Math.ceil(maxx+pad),Y1=Math.ceil(maxy+pad),W=X1-X0,Hh=Y1-Y0;
+  const S=new Uint8Array(W*Hh),HT=new Float32Array(W*Hh);
+  for(let j=0;j<Hh;j++)for(let i=0;i<W;i++){const x=X0+i+.5,y=Y0+j+.5,k=j*W+i;HT[k]=0;let s=S_OB;if(mgPip([x,y],L.poly)){s=S_GREEN;for(const o of L.ob){if(o.k==='sand'&&mgInR([x,y],o.r))s=S_SAND;if(o.k==='water'&&mgInR([x,y],o.r))s=S_WATER}}S[k]=s}
+  const f=mgParseHex(T.felt),fB=mgParseHex(T.felt2);
+  const st={rough:mgHx(f.map(v=>v*.55)),rough2:mgHx(f.map(v=>v*.5)),fw:mgHx(f),fw2:mgHx(fB),deep:mgHx(f.map(v=>v*.35)),sand:'#e8d18e',waste:'#c4a574',trees:0,tree:0};
+  if(C.theme==='neon')Object.assign(st,{fw:'#1b2150',fw2:'#151a3a',rough:'#0b0d26',rough2:'#07081a',deep:'#050614'});
+  if(C.theme==='ice')Object.assign(st,{fw:'#d8f1ff',fw2:'#c6e8fb',rough:'#eef7ff',rough2:'#e2effa',deep:'#c0d8ea',sand:'#ffffff'});
+  if(C.theme==='desert')Object.assign(st,{fw:'#c98a4b',fw2:'#bf7f42',rough:'#f0c27a',rough2:'#e6b56a',deep:'#a06a35'});
+  if(C.theme==='pirate')Object.assign(st,{fw:'#2f9b8c',fw2:'#2a8b7e',rough:'#e9d29a',rough2:'#dcc285',deep:'#1f6a5e'});
+  const hAt=()=>0,demAt=()=>-.15;
+  const surfAt=(x,y)=>{const i=Math.floor(x-X0),j=Math.floor(y-Y0);if(i<0||j<0||i>=W||j>=Hh)return S_OB;return S[j*W+i]};
+  const slopeAt=(x,y)=>{for(const o of L.ob)if(o.k==='slope'&&mgInR([x,y],o.r))return{x:o.ax*MG_SC*.35,y:o.ay*MG_SC*.35};return{x:0,y:0}};
+  const F={fw:[L.poly],gr:[L.poly],ro:[],bk:[],wa:[],sd:[],te:[],gc:[L.poly],wd:[],cp:[]};
+  for(const o of L.ob){if(o.k==='water')F.wa.push([[o.r[0],o.r[1]],[o.r[0]+o.r[2],o.r[1]],[o.r[0]+o.r[2],o.r[1]+o.r[3]],[o.r[0],o.r[1]+o.r[3]]]);
+    if(o.k==='sand')F.bk.push([[o.r[0],o.r[1]],[o.r[0]+o.r[2],o.r[1]],[o.r[0]+o.r[2],o.r[1]+o.r[3]],[o.r[0],o.r[1]+o.r[3]]])}
+  const cup={x:L.cup[0],y:L.cup[1],pin:1},tee={x:L.tee[0],y:L.tee[1]};
+  return{crk:[],blds:[],inBld:()=>false,addTree:()=>{},rot:0,course:{id:'mini-'+C.id,name:C.name,style:'parkland',tees:[{n:'Tee',y:[10]}],par:[L.par]},hi,par:L.par,yards:Math.round(Math.hypot(L.cup[0]-L.tee[0],L.cup[1]-L.tee[1])),teeIdx:0,line:[[tee.x,tee.y],[cup.x,cup.y]],X0,Y0,X1,Y1,W,H:Hh,S,HT,NW:W,NH:Hh,hAt,demAt,surfAt,slopeAt,gradAt:()=>[0,0],greenH:()=>0,greenG:()=>[0,0],gm:{cx:L.cup[0],cy:L.cup[1],tx:0,ty:0,b:[[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0],[L.cup[0],L.cup[1],5,0]]},G:null,F,sea:[],cup,trees:[],treeHit:()=>null,st,woodMask:new Uint8Array(W*Hh),tee,pews:null,towers:[],allTrees:[],mg:L,mgTheme:C.theme,mgT0:performance.now()/1000}}
+function mgPuttRoll(x0,y0,hd,v,rec){const H=G.H,hole=H.mg,t0=performance.now()/1000-(H.mgT0||0),segs=mgSegsNow(hole,t0),rad=.12;
+  let x=x0,y=y0,vx=Math.cos(hd)*v*YD,vy=Math.sin(hd)*v*YD;const dt=1/60;let n=0,tpCd=0;const put=(a,b,c)=>{if(rec&&n<rec.length-3){rec[n++]=a;rec[n++]=b;rec[n++]=c}};
+  const res={kind:'rest',x,y,n:0};
+  for(let it=0;it<1800;it++){const s=H.surfAt(x,y);if(s===S_WATER){res.kind='water';res.x=x;res.y=y;break}if(s===S_OB){res.kind='ob';res.x=x;res.y=y;break}
+    let ax=0,ay=0;{const g=H.slopeAt(x,y);ax=g.x;ay=g.y}let fr=CR[s]||CR[S_GREEN];if(H.mgTheme==='ice'&&s===S_GREEN)fr*=.35;
+    vx+=ax*dt;vy+=ay*dt;const sp=Math.hypot(vx,vy),dec=fr*GRAV*YD;if(sp<1e-4)break;const ns=sp-dec*dt;if(ns<=0||(ns<.05&&Math.hypot(ax,ay)<dec*.9))break;vx*=ns/sp;vy*=ns/sp;
+    let nx=x+vx*dt,ny=y+vy*dt;
+    for(const sg of segs){const[a,c]=sg;const ex=c[0]-a[0],ey=c[1]-a[1],L2=ex*ex+ey*ey||1;let u=((nx-a[0])*ex+(ny-a[1])*ey)/L2;u=u<0?0:u>1?1:u;const px=a[0]+ex*u,py=a[1]+ey*u;let nnx=nx-px,nny=ny-py,d=Math.hypot(nnx,nny);
+      if(d<rad&&d>1e-8){nnx/=d;nny/=d;nx=px+nnx*rad;ny=py+nny*rad;const vn=vx*nnx+vy*nny;if(vn<0){const e=sg[2]?1.05:.82;vx-=(1+e)*vn*nnx;vy-=(1+e)*vn*nny;if(sg[2]){vx+=nnx*6;vy+=nny*6}}}}
+    for(const o of hole.ob)if(o.k==='bump'){const dx=nx-o.x,dy=ny-o.y,d=Math.hypot(dx,dy),rr=(o.rad||1)+rad;if(d<rr&&d>1e-8){const nxn=dx/d,nyn=dy/d;nx=o.x+nxn*rr;ny=o.y+nyn*rr;const vn=vx*nxn+vy*nyn;if(vn<0){vx-=2*vn*nxn;vy-=2*vn*nyn;vx+=nxn*8;vy+=nyn*8}}}
+    tpCd-=dt;for(const o of hole.ob)if(o.k==='tp'&&tpCd<=0){for(const[p,q]of[[o.a,o.b],[o.b,o.a]])if(Math.hypot(nx-p[0],ny-p[1])<.9){nx=q[0];ny=q[1];tpCd=.55;break}}
+    x=nx;y=ny;put(x,y,0);const cup=H.cup,dx=cup.x-x,dy=cup.y-y,dc=Math.hypot(dx,dy),v2=Math.hypot(vx,vy);
+    if(dc<.066&&v2<1.7){put(cup.x,cup.y,0);res.kind='sunk';x=cup.x;y=cup.y;break}
+    if(dc<.1&&v2<.75&&dc>1e-4){vx+=dx/dc*2.2*dt;vy+=dy/dc*2.2*dt}}
+  res.x=x;res.y=y;res.n=n/3;res.surf=H.surfAt(x,y);return res}
+{const _pr=puttRoll;puttRoll=function(x,y,hd,v,surfAt,slopeAt,cup,rec){if(G.mgOn)return mgPuttRoll(x,y,hd,v,rec);return _pr.apply(this,arguments)}}
+function mgEnsureBox(R){if(R.mgBox)return R.mgBox;const P=[],N=[],I=[];
+  const face=(ax,ay,az,nx,ny,nz)=>{const ox=nx?0:1,oy=ny?0:1,oz=nz?0:1;const c=[[ax,ay,az],[ax+ox,ay+oy*(nx||ny?0:1)+(!nx&&!ny?0:oy),az+oz*(nx||nz?0:1)+(!nx&&!nz?0:oz)]];
+    /* simpler: unit cube 0..1 */}
+  /* unit cube 0..1 */
+  const V=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+  const faces=[[[0,1,2,3],[0,0,-1]],[[4,7,6,5],[0,0,1]],[[0,4,5,1],[0,-1,0]],[[2,6,7,3],[0,1,0]],[[0,3,7,4],[-1,0,0]],[[1,5,6,2],[1,0,0]]];
+  for(const[idx,n]of faces){const b=P.length/3;for(const i of idx){P.push(...V[i]);N.push(...n)}I.push(b,b+1,b+2,b,b+2,b+3)}
+  return R.mgBox=R.vao([{loc:0,n:3,d:new Float32Array(P)},{loc:1,n:3,d:new Float32Array(N)}],new Uint16Array(I))}
+function mgDraw3D(R,draw){const H=G.H;if(!H||!H.mg)return;const hole=H.mg,t=performance.now()/1000-(H.mgT0||0),T=MG_THEMES[H.mgTheme]||MG_THEMES.meadow;
+  const parse=c=>{const a=mgParseHex(c);return a.map(v=>v/255)};const rail=parse(T.rail),railS=parse(T.railS);const box=mgEnsureBox(R),segs=mgSegsNow(hole,t);
+  const wallH=1.05,thick=.2;
+  for(const sg of segs){if(sg[2])continue;const[a,b]=sg;const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,len=Math.hypot(b[0]-a[0],b[1]-a[1])||.01,ang=Math.atan2(b[1]-a[1],b[0]-a[0]);
+    const c=Math.cos(ang),s=Math.sin(ang);const M=new Float32Array([c*len,s*len,0,0,-s*thick,c*thick,0,0,0,0,wallH,0,mx-c*len/2+s*thick/2,my-s*len/2-c*thick/2,0,1]);
+    draw(box,M,railS,0,.6);const M2=new Float32Array([c*len,s*len,0,0,-s*thick*.65,c*thick*.65,0,0,0,0,.18,0,mx-c*len/2+s*thick*.32,my-s*len/2-c*thick*.32,wallH,1]);draw(box,M2,rail,0,H.mgTheme==='neon'?1.4:.85)}
+  for(const o of hole.ob){if(o.k==='bump'){const col=H.mgTheme==='neon'?[.25,.85,1]:H.mgTheme==='ice'?[.95,.98,1]:H.mgTheme==='desert'?[.25,.55,.3]:[.9,.25,.2];const r=o.rad||1.2;const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.sphere,TRS(o.x,o.y,r*.9,r,r,r),col,0,.75)}
+    if(o.k==='wm'){const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.cyl,TRS(o.x,o.y,0,.28,.28,2.8),H.mgTheme==='neon'?[.4,.15,.55]:[.55,.3,.18],0,.5);
+      for(let k=0;k<4;k++){const a=t*o.spd+k*Math.PI/2,c=Math.cos(a),s=Math.sin(a);const M=new Float32Array([c*o.len,s*o.len,0,0,-s*.1,c*.1,0,0,0,0,.12,0,o.x-c*o.len/2,o.y-s*o.len/2,2.7,1]);draw(box,M,H.mgTheme==='neon'?[.25,.8,1]:[.9,.85,.7],0,.9)}}
+    if(o.k==='tp'){for(const[p,col]of[[o.a,[.25,.8,1]],[o.b,[1,.45,.2]]]){const TRS=(x,y,z,sx,sy,sz)=>new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);draw(R.ringM,TRS(p[0],p[1],.04,1.15,1.15,.1),col,0,1.2)}}}
+  /* moving blocks */
+  for(const o of hole.ob)if(o.k==='mov'){const s=Math.sin(t*o.spd)*.5+.5,x=o.x+o.dx*s,y=o.y+o.dy*s;const M=new Float32Array([o.w,0,0,0,0,o.h,0,0,0,0,1.1,0,x,y,0,1]);draw(box,M,railS,0,.7)}}
+{const _gd=glDraw;glDraw=function(R,cam,S){const r=_gd.apply(this,arguments);try{if(G.mgOn&&R.hole){const p=R.pMesh,u=p.u,gl=R.gl;gl.useProgram(p.p);gl.uniform1f(u.uBallD,0);gl.disable(gl.CULL_FACE);
+  const draw=(m,M,c,flag,em)=>{if(!m)return;gl.uniformMatrix4fv(u.uM,false,M);gl.uniform3fv(u.uC,c);gl.uniform1f(u.uFlag,flag||0);gl.uniform1f(u.uEmis,em||0);gl.bindVertexArray(m.v);gl.drawElements(gl.TRIANGLES,m.n,m.it,0)};
+  mgDraw3D(R,draw);gl.enable(gl.CULL_FACE)}}catch(e){window.MGerr=String(e&&e.message||e)}return r}}
+function mgStop2D(){try{MG.on=false;cancelAnimationFrame(MG.raf);if(MG.cv)MG.cv.style.display='none'}catch(e){}G.cartOn=false}
+mgStart=function(ci,hi){mgStop2D();MG.ci=ci;MG.hi=hi||0;MG.card=[];MG.c=MG_COURSES[ci];G.mgOn=1;G.mode='mini';
+  hideScreens();$('hud').classList.add('on');mgLoad3D()};
+function mgLoad3D(){const H=mgBuildH(MG.ci,MG.hi);setHole(H);try{if(H.mgTheme==='neon')applyTOD('night',H);else if(H.mgTheme==='ice')applyTOD('morning',H);else if(H.mgTheme==='desert')applyTOD('sunset',H);else applyTOD('midday',H)}catch(e){}G.ball={x:H.tee.x,y:H.tee.y,surf:S_GREEN};G.strokes=0;G.pen=0;G.putts=0;G.ballOn=true;G.aim=Math.atan2(H.cup.y-H.tee.y,H.cup.x-H.tee.x);G.phase='putt';G.club=PUTTER;G.view=0;G.sw=null;G.replay=null;G.R.tracerN=0;
+  G.onShot=null;G.onRest=()=>{if(G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}};G.onHoled=()=>mgFinishHole(false);try{if(window.WL){WL.on=false;const c=document.getElementById('wlC');if(c)c.style.display='none'}}catch(e){}
+  G.phase='putt';G.club=PUTTER;G.view=0;setAddress();G.phase='putt';G.club=PUTTER;try{updClubs();updHUD();updPutt();$('bCard').style.display='none';$('bRep').style.display='none';const mb=$('modeBar');if(mb)mb.style.display='none';const cl=$('clubs');if(cl)cl.style.display='none';const sh=$('shot');if(sh)sh.style.display='none'}catch(e){}
+  try{G.cam=null;camSnap()}catch(e){}mgHud();toast(MG.c.name,'Hole '+(MG.hi+1)+' / '+MG.c.holes.length+' · Par '+H.par,2000)}
+function mgHud(){try{$('bHn').textContent='HOLE '+(MG.hi+1);$('bName').textContent=MG.c.name;const tot=MG.card.reduce((a,v)=>a+(v||0),0);let p=0;for(let i=0;i<MG.card.length;i++)if(MG.card[i])p+=MG.c.holes[i].par;const d=tot-p;$('bPar').textContent='PAR '+G.H.par+' · '+tot+' ('+(d===0?'E':d>0?'+'+d:''+d)+')';$('bSc').textContent=''}catch(e){}}
+function mgFinishHole(pu){const H=MG.c.holes[MG.hi],s=pu?MG_MAXS:G.strokes;MG.card[MG.hi]=s;toast(s===1?'HOLE IN ONE!':(MG_NM[s-H.par]||((s-H.par)>0?'+'+(s-H.par):''+(s-H.par))),s+' stroke'+(s===1?'':'s'),1700);
+  setTimeout(()=>{if(!G.mgOn)return;if(MG.hi+1<MG.c.holes.length){MG.hi++;mgLoad3D()}else mgResults3D()},1500)}
+function mgResults3D(){const C=MG.c,par=C.holes.reduce((a,h)=>a+h.par,0),tot=MG.card.reduce((a,v)=>a+v,0);const st=mgStore(),prev=st.best[C.id],nb=prev==null||tot<prev;if(nb){st.best[C.id]=tot;store('ts.mini',st)}
+  G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');G.mode='menu';
+  show('scSetup',`<div class="pn"><div class="hdr"><h2>${esc(C.name)} · Scorecard</h2></div><div style="text-align:center;font:900 30px/1.2 system-ui,sans-serif;margin:6px 0">${tot} <span style="font-size:18px;opacity:.8">(${tot-par===0?'E':tot-par>0?'+'+(tot-par):tot-par})</span></div>${nb?'<div style="text-align:center;color:#3fe0b0;font-weight:800">NEW COURSE BEST</div>':`<div style="text-align:center;opacity:.75">Course best ${prev}</div>`}
+  <table style="width:100%;border-collapse:collapse;text-align:center;margin-top:10px;font-size:15px"><tr style="opacity:.7"><td>Hole</td>${C.holes.map((h,i)=>`<td>${i+1}</td>`).join('')}<td>Tot</td></tr><tr><td style="opacity:.7">Par</td>${C.holes.map(h=>`<td>${h.par}</td>`).join('')}<td>${par}</td></tr><tr style="font-weight:800"><td style="opacity:.7">You</td>${MG.card.map((v,i)=>`<td style="color:${v<C.holes[i].par?'#3fe0b0':v>C.holes[i].par?'#ff9a6a':'#fff'}">${v}</td>`).join('')}<td>${tot}</td></tr></table>
+  <button class="btn" id="mgAg" style="margin-top:14px">Play again</button><button class="btn alt" id="mgCs">Choose another course</button><button class="btn alt c" id="mgMn">Main menu</button></div>`);
+  $('mgAg').onclick=()=>mgStart(MG.ci);$('mgCs').onclick=()=>{G.mgOn=0;showMiniCourses()};$('mgMn').onclick=()=>{G.mgOn=0;G.last=0;showMenu()}}
+mgExit=function(){G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');mgStop2D();showMiniCourses()};
+{const _sm=showMenu;showMenu=function(){if(G.mgOn){G.mgOn=0;G.ballOn=false;$('hud').classList.remove('on');mgStop2D()}return _sm.apply(this,arguments)}}
+addEventListener('keydown',e=>{if(G.mgOn&&e.code==='Escape'){e.stopPropagation();mgExit()}},true);
+{const _sa=setAddress;setAddress=function(){const r=_sa.apply(this,arguments);if(G.mgOn){G.phase='putt';G.club=PUTTER;G.view=0;try{updClubs();updHUD();mgHud()}catch(e){}}return r}}
+{const _fs=finishShot;finishShot=function(){if(!G.mgOn)return _fs.apply(this,arguments);const a=G.anim,res=a&&a.res;const r=_fs.apply(this,arguments);try{if(res&&res.kind!=='sunk'&&G.strokes>=MG_MAXS&&G.phase!=='holed'){G.phase='holed';mgFinishHole(true)}}catch(e){}return r}}
+
+{const _smc=showMiniCourses;showMiniCourses=function(){const r=_smc.apply(this,arguments);try{const n=document.querySelector("#scSetup .gnote");if(n)n.textContent="Five 5-hole courses in Tour Sim 3D. Same putter stroke and camera as regular putting. Rails bounce, windmills block, bumpers kick, sand slows, water costs a stroke, portals warp. Max "+MG_MAXS+" strokes a hole."}catch(e){}return r}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}

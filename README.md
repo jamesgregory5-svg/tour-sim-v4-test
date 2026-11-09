@@ -1,6 +1,6 @@
 # Tour Sim v4 test
 
-Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off the track, beatable CPUs). v4.9.1: (wildlife visible fix). v4.9 (wildlife: gulls, squirrels, Florida gators). v4.7: (Endless mode, putt-line assist rules). v4.6: (putt line preview, strike-quality sound, course handicap, leaf slowdown, real course conditions, tidy left HUD column, white gate eye). v4.5: (leaf pass-through, tree camera). v4.4: (draw/fade spin sliders). v4.3: (chip/pitch/flop selector, air-aware yardages, stronger altitude, faster CPU carts at hard levels). v4.2: temp + altitude, 0.1 ft gimme. v4.1: tee height, plays-like, career trail, lip-outs, left stack.
+Current: v4.26 (3D mini-golf in WebGL + real putting). Password gate unchanged.
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
@@ -16,3 +16,4 @@ Current: v4.11 (fat shot + shank animations). v4.10: (Cart Chase: clubhouse off 
 - v4.23: Music packs: 8 original synthesized tracks (3 free, 5 unlockable), separate menu / in-round track and volume, Music screen on the main menu.
 - v4.24: Announcer — spoken comments on notable shots (Web Speech), on/off + volume, Announcer screen near Music.
 - v4.25: Wildlife birds fly along the fairway/green corridor (no longer circling near the tee).
+- v4.26: Mini-golf rebuilt in Tour Sim 3D WebGL with the real putter stroke/camera (2D play canvas removed); five courses/themes/scoring kept.
