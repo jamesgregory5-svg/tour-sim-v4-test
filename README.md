@@ -1,6 +1,6 @@
 # Tour Sim v4 test
 
-Current: v4.39 (PCC+Plainfield far terrain + course bios; folders). Password unchanged.
+Current: v4.40 (Bird Hunt mini-game — 60s range, hit gulls, gore, fixed cam). Password unchanged.
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
@@ -30,3 +30,4 @@ Current: v4.39 (PCC+Plainfield far terrain + course bios; folders). Password unc
 - v4.37: Course select folders — Local, Top ranked, Links & dunes, Coastal, Parkland, All.
 - v4.38: Added Philadelphia Cricket Club (Wissahickon) and Plainfield Country Club with real OSM + USGS DEM.
 - v4.39: Far DEM horizons + course bios for PCC and Plainfield.
+- v4.40: Bird Hunt mini-game — 60s driving range, hit gulls for points, blood gore, bird-count setting, fixed cam, fading trails, KILL THEM ALL sign.
