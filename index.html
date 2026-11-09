@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;align-items:center;justify-content:center;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease">LOADING…</div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.23';
+const VERSION='v4.24';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3777,6 +3777,54 @@ function showMusic(){const p=muPrefs();const row=(ctx)=>MU_TR.map(t=>{const ok=m
   for(const [id,k] of[['muVm','vm'],['muVr','vr']])$(id).oninput=e=>{const q=muPrefs();q[k]=+e.target.value/100;muSave(q);$(id+'V').textContent=e.target.value+'%'};
   s.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{const q=muPrefs();q[b.dataset.c]=b.dataset.t;muSave(q);crAC();showMusic()})}
 {const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{const h=$('mHow');if(h&&!$('mMusic')){const b=document.createElement('button');b.className='btn alt c';b.id='mMusic';b.textContent='Music';b.onclick=showMusic;h.before(b)}}catch(e){console.warn(e)}return out}}
+
+/* v4.24: Announcer — short spoken commentary on notable shots via Web Speech (original lines, no broadcast catchphrases). Prefs: ts.ann {on,vol} */
+const ANN_LINES={
+ ace:['That is an ace!','Hole in one! What a strike.','Straight in. An ace!'],
+ eagle:['Eagle! That was special.','They make that look easy. Eagle.','Eagle on the card.'],
+ birdie:['Birdie putt drops.','That is a birdie.','In for birdie.'],
+ par:['In for par.','Good save for par.','Par. Moves along.'],
+ bogey:['Bogey. They will take it and go.','One over. On to the next.'],
+ chipin:['Chip in! That is huge.','From off the green, and it drops!'],
+ close:['That is pin high and tight.','Close enough to smell the hole.','Sticking it close.'],
+ drive:['That is out there.','Bombed it. Fairway found.','What a drive.'],
+ lip:['Oh, it lips out.','So close. That one hangs on the edge.','Just slides by.'],
+ water:['That finds the water.','Splash. Wet ball.','In the drink.'],
+ sand:['Buried in the sand.','That found a bunker.','Into the trap.'],
+ ob:['That is out of bounds.','OB. Costly.','Over the line. Out of bounds.'],
+ longp:['That putt finds the bottom. From a long way.','They poured that one in.','What a putt from distance.']};
+function annPrefs(){return Object.assign({on:1,vol:.7},store('ts.ann')||{})}
+function annSave(p){store('ts.ann',p)}
+let ANN_LAST=0;
+function annSay(kind){try{const p=annPrefs();if(!p.on||!window.speechSynthesis)return;const L=ANN_LINES[kind];if(!L)return;const now=performance.now();if(now-ANN_LAST<2200)return;ANN_LAST=now;
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(L[(Math.random()*L.length)|0]);u.rate=.95;u.pitch=.95;u.volume=Math.max(0,Math.min(1,p.vol));
+  const vs=speechSynthesis.getVoices().filter(v=>/^en(-|_|$)/i.test(v.lang));if(vs.length)u.voice=vs.find(v=>/daniel|google us english|microsoft david|en-us/i.test(v.name))||vs[0];
+  speechSynthesis.speak(u)}catch(e){}}
+{const _fs=finishShot;finishShot=function(){const a=G.anim,H=G.H;let info=null,fx=0,fy=0;
+  try{if(a&&a.res&&H&&a.from){fx=a.from.x;fy=a.from.y;let md=1e9;const P=a.P;for(let i=0;i<(a.n||0);i++){const d=Math.hypot(P[i*3]-H.cup.x,P[i*3+1]-H.cup.y);if(d<md)md=d}
+    info={put:!!a.put,kind:a.res.kind,d0:Math.hypot(fx-H.cup.x,fy-H.cup.y),md,fromSurf:G.lastPos&&G.lastPos.surf,fx,fy}}}catch(e){}
+  const r=_fs.apply(this,arguments);
+  try{if(info&&(G.mode==='round'||G.mode==='endless')&&!G.cartOn&&!(typeof MG!=='undefined'&&MG.on)){const b=G.ball,dEnd=Math.hypot(b.x-H.cup.x,b.y-H.cup.y),ft=dEnd*3,drive=Math.hypot(b.x-info.fx,b.y-info.fy);
+    if(info.kind==='sunk'){const d=G.strokes-H.par;if(G.strokes===1)annSay('ace');else if(!info.put)annSay('chipin');else if(d<=-2)annSay('eagle');else if(d===-1)annSay('birdie');else if(d===0&&info.d0*3>12)annSay('par');else if(d===1)annSay('bogey');else if(info.put&&info.d0*3>22)annSay('longp')}
+    else if(info.kind==='water')annSay('water');
+    else if(info.kind==='ob')annSay('ob');
+    else if(info.put&&info.md<.13&&dEnd>.05)annSay('lip');
+    else if(!info.put&&H.surfAt(b.x,b.y)===S_SAND)annSay('sand');
+    else if(!info.put&&H.surfAt(b.x,b.y)===S_GREEN&&ft<6)annSay('close');
+    else if(!info.put&&info.fromSurf===S_TEE&&H.par>3&&drive>280&&H.surfAt(b.x,b.y)===S_FW)annSay('drive')}}catch(e){}
+  return r}}
+function showAnn(){const p=annPrefs();
+  show('scSetup',`<div class="pn" style="max-width:560px"><div class="hdr"><button class="ib" id="anB">‹</button><h2>Announcer</h2></div>
+  <div class="gnote">Short spoken comments on great shots, hole-outs, hazards and near-misses. Uses your device's voice. Original lines only. Not every shot gets a call.</div>
+  <div class="seg" id="anOn" style="margin-top:8px"><button data-v="1" class="${p.on?'sel':''}">Announcer on</button><button data-v="0" class="${p.on?'':'sel'}">Announcer off</button></div>
+  <div class="sec">Volume</div><div style="display:flex;align-items:center;gap:10px"><input type="range" id="anVol" min="0" max="100" value="${Math.round(p.vol*100)}" style="flex:1"><span id="anVolV" style="width:40px;text-align:right">${Math.round(p.vol*100)}%</span></div>
+  <button class="btn alt" id="anTest" style="margin-top:12px">Test line</button></div>`);
+  $('anB').onclick=showMenu;$('anOn').onclick=e=>{const b=e.target.closest('button');if(b){const q=annPrefs();q.on=+b.dataset.v;annSave(q);if(!q.on&&window.speechSynthesis)speechSynthesis.cancel();showAnn()}};
+  $('anVol').oninput=e=>{const q=annPrefs();q.vol=+e.target.value/100;annSave(q);$('anVolV').textContent=e.target.value+'%'};
+  $('anTest').onclick=()=>{ANN_LAST=0;annSay(['birdie','drive','close','eagle'][(Math.random()*4)|0])}}
+{const _sm=showMenu;showMenu=function(){const out=_sm.apply(this,arguments);try{const m=$('mMusic');if(m&&!$('mAnn')){const b=document.createElement('button');b.className='btn alt c';b.id='mAnn';b.textContent='Announcer';b.onclick=showAnn;m.after(b)}}catch(e){}return out}}
+{const _mu=showMusic;showMusic=function(){const r=_mu.apply(this,arguments);try{const n=document.querySelector('#scSetup .gnote');if(n&&!$('muAnnL')){const a=document.createElement('div');a.id='muAnnL';a.style.cssText='margin-top:10px';a.innerHTML='<button class="btn alt" id="muAnn" style="margin:0">Announcer settings</button>';n.after(a);$('muAnn').onclick=showAnn}}catch(e){}return r}}
+try{if(window.speechSynthesis)speechSynthesis.getVoices()}catch(e){}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
