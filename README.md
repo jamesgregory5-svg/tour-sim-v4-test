@@ -1,6 +1,6 @@
 # Tour Sim v4 test
 
-Current: v4.36 (bigger multi-wave hole explosions + rival chat + mini-golf polish). Password unchanged.
+Current: v4.37 (course folders Local/Top/Links/Coastal/Parkland/All + prior polish). Password unchanged.
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
@@ -27,3 +27,4 @@ Current: v4.36 (bigger multi-wave hole explosions + rival chat + mini-golf polis
 - v4.34: Disable cam yaw-limit sky drift in mini-golf; peel further off rails; stronger slow cup pull.
 - v4.35: Career rival chat — chirp back / start a conversation; rivals reply in character. Mini-golf polish retained.
 - v4.36: Bigger multi-wave hole explosions (more sparks, second bang, dual shock rings).
+- v4.37: Course select folders — Local, Top ranked, Links & dunes, Coastal, Parkland, All.

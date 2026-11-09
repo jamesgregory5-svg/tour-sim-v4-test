@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.36';
+const VERSION='v4.37';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -1963,11 +1963,28 @@ function showHow(){show('scSetup',`<div class="pn"><div class="hdr"><h2>How to p
 function courseCard(c,R){const cr=R.courses[c.id];const rs=cr?cr.rounds:[];const b18=rs.filter(x=>x.n===18).reduce((m,x)=>m===null||x.tot-x.par<m.tot-m.par?x:m,null);
   const tot=c.tees[0].y.reduce((a,b)=>a+b,0),par=c.par.reduce((a,b)=>a+b,0);
   return`<button class="cc${c.home?' home':''}" data-id="${c.id}"><div class="rk">${c.home?'⌂':c.rank}</div><div><div class="nm">${esc(c.name)}${c.home?'<span class="badge">HOME COURSE</span>':''}</div><div class="lo">${esc(c.loc)} · Par ${par} · ${tot.toLocaleString()} yds</div><div class="rc">${b18?'Best 18: '+b18.tot+' ('+fmtPar(b18.tot-b18.par)+')':''}${rs.length?' · '+rs.length+' round'+(rs.length>1?'s':''):'No rounds yet'}</div></div></button>`}
-function showSelect(){const R=recLoad();const home=COURSES.filter(c=>c.home),top=COURSES.filter(c=>!c.home).sort((a,b)=>a.rank-b.rank);
+/* v4.37: course folders (Local / Majors-style Top / Links / Coastal / All) */
+const COURSE_FOLDERS=[
+  {id:'local',n:'Local',match:c=>c.home||/PA|NJ|Philadelphia|Plainfield|Five Ponds|Lookaway|Merion|Oakmont|Pine Valley|Cricket/i.test(c.loc+' '+c.name)},
+  {id:'top',n:'Top ranked',match:c=>!c.home&&c.rank>0&&c.rank<=25},
+  {id:'links',n:'Links & dunes',match:c=>/links|dunes|heath/i.test(c.style||'')},
+  {id:'coastal',n:'Coastal',match:c=>/coastal/i.test(c.style||'')},
+  {id:'parkland',n:'Parkland',match:c=>/parkland|prairie/i.test(c.style||'')},
+  {id:'all',n:'All courses',match:()=>true}
+];
+function showSelect(folder){const R=recLoad();folder=folder||store('ts.cfolder')||'local';store('ts.cfolder',folder);
+  const F=COURSE_FOLDERS.find(f=>f.id===folder)||COURSE_FOLDERS[0];
+  const home=COURSES.filter(c=>c.home);
+  let list=COURSES.filter(c=>F.match(c)).sort((a,b)=>(b.home?1:0)-(a.home?1:0)||a.rank-b.rank||a.name.localeCompare(b.name));
+  if(folder==='local'){/* keep home first, then other locals by name */list=COURSES.filter(c=>F.match(c)).sort((a,b)=>(b.home?1:0)-(a.home?1:0)||a.name.localeCompare(b.name))}
+  const tabs=COURSE_FOLDERS.map(f=>`<button data-f="${f.id}" class="${f.id===folder?'sel':''}" style="flex:1 1 auto">${esc(f.n)}</button>`).join('');
   const s=show('scSelect',`<div class="wrap"><div class="hdr"><button class="ib" id="sb">‹</button><h2>Course select</h2></div>
-  <div class="cards">${home.map(c=>courseCard(c,R)).join('')}</div><div class="sec">Golf Digest · America's 100 Greatest (2025-26) · Top 25</div><div class="cards">${top.map(c=>courseCard(c,R)).join('')}</div>
+  <div class="seg" id="cfTabs" style="flex-wrap:wrap;margin-bottom:10px">${tabs}</div>
+  ${folder==='local'&&home.length?`<div class="sec">Home</div><div class="cards">${home.map(c=>courseCard(c,R)).join('')}</div>`:''}
+  <div class="sec">${esc(F.n)} · ${list.filter(c=>!(folder==='local'&&c.home)).length} courses</div>
+  <div class="cards">${list.filter(c=>!(folder==='local'&&c.home)).map(c=>courseCard(c,R)).join('')}</div>
   <div class="disc">Fan-made; layouts approximate; not affiliated with any club.</div></div>`);
-  $('sb').onclick=showMenu;s.querySelectorAll('.cc').forEach(b=>b.onclick=()=>showSetup(b.dataset.id))}
+  $('sb').onclick=showMenu;$('cfTabs').onclick=e=>{const b=e.target.closest('button');if(b)showSelect(b.dataset.f)};s.querySelectorAll('.cc').forEach(b=>b.onclick=()=>showSetup(b.dataset.id))}
 function showSetup(cid){const c=CID[cid];if(!c||!c.tees||!c.tees.length){showSelect();return}let dif=diffI(),tee=0,part=2,np=1,gm=+(store('ts.gimme')||0),crw=(()=>{const v=store('ts.crowd');return v===null||v===undefined?2:+v})(),pinS=pinIn()?1:0,tod=todKey();const names=[ownerName(),...((store('ts.players')||[]).slice(-3).reverse())];while(names.length<4)names.push('Player '+(names.length+1));const tot=t=>c.tees[t].y.reduce((a,b)=>a+b,0);
   const draw=()=>{const s=show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="ub">‹</button><h2 style="font-size:18px">${esc(c.name)}</h2></div>
    <div class="lo" style="opacity:.75;font-size:13px">${c.home?'<span class="badge" style="margin:0 6px 0 0">HOME COURSE</span>':'#'+c.rank+' · '}${esc(c.loc)}</div>
