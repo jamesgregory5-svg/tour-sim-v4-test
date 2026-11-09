@@ -1,5 +1,5 @@
 # Tour Sim v4 test
 
-**v4.42** — Career: The Masters at Augusta (Major Series), named majors, season venue rotation across 32 courses (incl. PCC/Plainfield), rival match venues rotate. Old saves still load.
+**v4.43** — Topgolf Classic mode (20 balls, colored targets, hot-seat, night bay, ts.topgolf). Career: The Masters only at Augusta Tournament tees (~7555), Augusta excluded from regular rotation, majors use tournament tees + firm/fast greens.
 
-Prior: v4.41 Bird Hunt rapid-fire; v4.40 Bird Hunt debut.
+**v4.42** — Career Masters + season venue variety (32 courses incl. PCC/Plainfield); rival venues rotate.
