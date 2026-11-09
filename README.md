@@ -1,6 +1,6 @@
 # Tour Sim v4 test
 
-Current: v4.34 (mini-golf no sky yaw-drift; peel off rails; stickier cup pull). Password unchanged.
+Current: v4.35 (career rival chat chirp-back + mini-golf cam/walls/cup polish). Password unchanged.
 
 - v4.12: trail styles (solid/dotted/glow) + more ball & trail colours in Customize (career trails still pro-shop only).
 - v4.13: crowd noise overhaul (noise-formant voices instead of buzzy sawtooth, louder stereo applause w/ reverb tail, roar w/ whistles, drive applause, overlap guard).
@@ -25,3 +25,4 @@ Current: v4.34 (mini-golf no sky yaw-drift; peel off rails; stickier cup pull). 
 - v4.32: Wider on-path cup capture; trails off in mini-golf for clarity.
 - v4.33: Putt-flight cam clamped on green (no sky mid-bounce); thicker rails; firmer wall bounce; wider rest cup assist.
 - v4.34: Disable cam yaw-limit sky drift in mini-golf; peel further off rails; stronger slow cup pull.
+- v4.35: Career rival chat — chirp back / start a conversation; rivals reply in character. Mini-golf polish retained.

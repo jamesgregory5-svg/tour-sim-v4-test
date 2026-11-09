@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;transition:width .15s linear"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.34';
+const VERSION='v4.35';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -3995,6 +3995,61 @@ addEventListener('keydown',e=>{if(G.mgOn&&e.code==='Escape'){e.stopPropagation()
 /* v4.34: mini-golf — no yaw-limit sky drift; keep rest cam looking down */
 {const _cyl=camYawLimit;camYawLimit=function(dt){if(G.mgOn){G.camYaw=null;return}return _cyl.apply(this,arguments)}}
 {const _uc2=updCam0;updCam0=function(dt){const r=_uc2.apply(this,arguments);if(G.mgOn&&G.H&&G.ball&&(G.phase==='rest'||G.phase==='holed')){try{G.camYaw=null;G.cam=mgCamPutt()}catch(e){}}return r}}
+
+/* v4.27: career rival chat — chirp back + start a conversation. Keeps inbound msgs; threads by rival. Free-text + quick chirps; rivals auto-reply in character. */
+const RV_CHIRPS=['You\'ll see me Sunday.','Put money on it.','Nice try.','Rematch?','Keep talking.','I\'m coming for that ranking.','Bring your A-game.','That all you got?'];
+const RV_REPLY={
+  challenge:['Done. Loser buys.','Oh we\'re doing this. See you on the first tee.','Big words, {me}. Bring a scorecard.','Challenge accepted. Try not to three-putt.'],
+  flex:['Cute. Rankings update on Sunday.','Talk to me after you make the cut.','Save the flex for the trophy photo.','Alright hotshot. Prove it at {c}.'],
+  nice:['Weirdly wholesome. Don\'t get soft on me.','Appreciate that. Still beating you though.','Classy. I\'ll still take your lunch money.','Noted. See you at {c}.'],
+  chirp:['Ha. Keep chirping, {me}.','Was that supposed to sting?','My caddie laughed. Loudly.','Okay that one was decent. Still not scared.'],
+  generic:['Heard. See you out there.','Busy grinding. Catch you at {c}.','Copy. Don\'t ghost the range.','Interesting take. We\'ll see.','Yeah? Meet me on the leaderboard.']
+};
+function rvTone(t){const s=(t||'').toLowerCase();
+  if(/\b(challenge|match|rematch|bet|money|stake|head.?to.?head|18)\b/.test(s))return'challenge';
+  if(/\b(rank|better|beat|crush|coming for|a-game|trophy|win)\b/.test(s))return'flex';
+  if(/\b(good|nice|congrats|well played|respect|class)\b/.test(s))return'nice';
+  if(/\b(try|talk|chirp|all you|scared|lunch)\b/.test(s))return'chirp';
+  return'generic'}
+function rvThread(C,rv){return rvMsgs(C).filter(m=>m.me?m.to===rv:m.f===rv)}
+function rvSendMe(C,to,text){const t=String(text||'').trim().slice(0,160);if(!t||!CR_RIVALS.includes(to))return null;
+  const M=rvMsgs(C);M.push({f:C.name,to,t,d:crDay(),r:1,me:1});
+  const seed=(Date.now()^t.length*997^to.length*131)>>>0;const pool=RV_REPLY[rvTone(t)]||RV_REPLY.generic;
+  const reply=rvFmt(rvPick(pool,seed),C,(C.cur&&C.cur.ev&&C.cur.ev.cid)||(crEvent(C)&&crEvent(C).cid));
+  M.push({f:to,t:reply,d:crDay(),r:0,re:1});while(M.length>80)M.shift();crSave(C);return reply}
+function rvLast(C,rv){const T=rvThread(C,rv);return T.length?T[T.length-1]:null}
+function showInbox(){const C=crLoad();if(!C){showCareer();return}
+  const rows=CR_RIVALS.map(n=>{const T=rvThread(C,n);const last=T[T.length-1];const un=T.filter(m=>!m.me&&!m.r).length;
+    return{n,last,un,nMsg:T.length}}).sort((a,b)=>(b.un-a.un)||((b.last&&b.last.d||'').localeCompare(a.last&&a.last.d||''))||a.n.localeCompare(b.n));
+  show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="ibB">‹</button><h2>Messages</h2></div>
+  <div class="gnote">Chirp back or start a chat. Rivals still message you after events — now you can answer.</div>
+  ${rows.map(x=>`<button class="rvTh" data-rv="${esc(x.n)}" style="display:block;width:100%;text-align:left;background:#121a20;border:1px solid ${x.un?'#ff9a6a':'#2a3a44'};border-radius:12px;padding:10px;margin:8px 0;color:#fff;cursor:pointer;font:inherit">
+    <div style="display:flex;justify-content:space-between;gap:8px"><b style="color:#ff9a6a">${esc(x.n)}</b><span style="font-size:12px;opacity:.7">${x.un?x.un+' new':x.nMsg?esc(x.last.d||''):'no chat yet'}</span></div>
+    <div style="font-size:13px;opacity:.85;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.last?(x.last.me?'You: ':'')+esc(x.last.t):'Tap to start a conversation'}</div>
+  </button>`).join('')}
+  <button class="btn alt c" id="ibCh" style="margin-top:8px">Challenge a rival</button></div>`);
+  $('ibB').onclick=showCareer;$('ibCh').onclick=showRivals;
+  document.querySelectorAll('.rvTh').forEach(b=>b.onclick=()=>showChat(b.dataset.rv))}
+function showChat(rv){const C=crLoad();if(!C||!CR_RIVALS.includes(rv)){showInbox();return}
+  const T=rvThread(C,rv);T.forEach(m=>{if(!m.me)m.r=1});crSave(C);
+  const bubbles=T.length?T.map(m=>`<div style="display:flex;justify-content:${m.me?'flex-end':'flex-start'};margin:6px 0">
+    <div style="max-width:82%;background:${m.me?'#1a3a32':'#1b1410'};border:${m.me?'1px solid #2a6a55':'1px solid #5a3a28'};border-radius:12px;padding:8px 10px">
+      <div style="font-size:11px;opacity:.65;margin-bottom:2px">${m.me?'You':esc(m.f)} · ${esc(m.d||'')}</div>
+      <div style="font-size:14px;line-height:1.35">${esc(m.t)}</div>
+    </div></div>`).join(''):`<div class="gnote">No messages with ${esc(rv)} yet. Say something — they\'ll answer.</div>`;
+  show('scSetup',`<div class="pn" style="max-width:720px"><div class="hdr"><button class="ib" id="chB">‹</button><h2>${esc(rv)}</h2></div>
+  <div style="font-size:12px;opacity:.7;margin-bottom:6px">${TN_STYLES[tnStyleI(rv)].n} · tap a chirp or type your own</div>
+  <div id="chLog" style="max-height:340px;overflow:auto;background:#0b1216;border-radius:12px;padding:8px 10px;margin-bottom:10px">${bubbles}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${RV_CHIRPS.map((c,i)=>`<button class="btn alt" data-ch="${i}" style="width:auto;margin:0;padding:6px 10px;font-size:12px">${esc(c)}</button>`).join('')}</div>
+  <div style="display:flex;gap:8px;align-items:stretch"><input id="chIn" maxlength="160" placeholder="Chirp back…" style="flex:1;font:inherit;font-size:15px;padding:10px 12px;border-radius:10px;border:1px solid #3a4a55;background:#121a20;color:#fff">
+  <button class="btn" id="chSend" style="width:auto;margin:0;padding:10px 16px">Send</button></div>
+  <button class="btn alt c" id="chRiv" style="margin-top:10px">Challenge ${esc(rv)}</button></div>`);
+  const log=$('chLog');if(log)log.scrollTop=log.scrollHeight;
+  const send=()=>{const v=($('chIn').value||'').trim();if(!v)return;rvSendMe(C,rv,v);showChat(rv)};
+  $('chB').onclick=showInbox;$('chSend').onclick=send;$('chIn').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();send()}};
+  document.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{rvSendMe(C,rv,RV_CHIRPS[+b.dataset.ch]);showChat(rv)});
+  $('chRiv').onclick=()=>{const sv=store('ts.round');if(sv&&sv.r&&sv.r.car){toast('Finish your round','Challenge after the event',2200);return}rvStart(rv)}}
+{const _sr=showRivals;showRivals=function(){const r=_sr.apply(this,arguments);try{document.querySelectorAll('[data-rv]').forEach(b=>{const n=b.dataset.rv;if(!n||b.dataset.chat)return;const c=document.createElement('button');c.className='btn alt';c.dataset.chat='1';c.textContent='Message';c.style.cssText='width:auto;margin:0 0 0 6px;padding:8px 12px';c.onclick=e=>{e.stopPropagation();showChat(n)};b.before(c)})}catch(e){}return r}}
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
