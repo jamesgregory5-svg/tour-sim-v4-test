@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;box-sizing:border-box;transition:none"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.47';
+const VERSION='v4.48';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -4153,20 +4153,52 @@ function tgDrawTargets(R,draw){const H=G.H;if(!H||!R||!R.disc)return;const night
     tgDrawTargets(R,draw);gl.enable(gl.CULL_FACE)}}catch(e){window.TGerr=String(e&&e.message||e)}return r}}
 
 
-/* v4.47: career — world ranking, Ryder Cup (every other season), press conferences, injuries, Monday qualifiers, season recap. Old saves get defaults via crEnsure. */
+/* v4.48: career — world ranking, Ryder Cup (every other season), press conferences, injuries, Monday qualifiers, season recap. Old saves get defaults via crEnsure. */
 (function(){
 /* ---------- defaults for old saves ---------- */
+function wrRoster(C){/* stable 49 AI names: rivals + regulars + TN name pool */
+  const used=new Set([C&&C.name].filter(Boolean));const out=[];
+  for(const n of [...CR_RIVALS,...CR_REGULARS]){if(!used.has(n)){used.add(n);out.push(n)}}
+  const seed=((C&&C.name||'x').length*104729+(C&&C.made||'').length*97+42)>>>0;const R=tnRng(seed);
+  let guard=0;while(out.length<49&&guard++<500){const n=TN_FIRST[Math.floor(R()*TN_FIRST.length)]+' '+TN_LAST[Math.floor(R()*TN_LAST.length)];
+    if(used.has(n))continue;used.add(n);out.push(n)}
+  return out}
+function wrNeedsBackfill(C){if(!C.wrF||typeof C.wrF!=='object')return 1;
+  const keys=Object.keys(C.wrF);if(keys.length<40)return 1;
+  if(keys.some(n=>/^Tour Pro\s/i.test(n)))return 1;
+  const vals=keys.map(k=>+C.wrF[k]||0).sort((a,b)=>b-a);const hi=vals[0]||0,mid=vals[Math.min(24,vals.length-1)]||0;
+  if(hi>0&&mid>0&&hi/mid>12)return 1;/* severely lopsided */
+  return 0}
+function wrBackfill(C){/* simulate prior events with same wrPts formula → realistic top-50 spread */
+  const roster=wrRoster(C);C.wrF=C.wrF&&typeof C.wrF==='object'?C.wrF:{};
+  for(const k of Object.keys(C.wrF))if(/^Tour Pro\s/i.test(k))delete C.wrF[k];
+  const seed=((C.name||'p').length*7919+(C.season||1)*104729+(C.ev||0)*97+13)>>>0;const R=tnRng(seed);
+  const events=Math.max(6,Math.min(28,(C.season|0)*CR_SEASON+(C.ev|0)+((C.hist&&C.hist.length)||0)*3));
+  const skill={};roster.forEach(n=>{skill[n]=(CR_RIVALS.includes(n)?.95:CR_REGULARS.includes(n)?.75:.35)+R()*.55});
+  for(const n of roster)C.wrF[n]=0;
+  for(let e=0;e<events;e++){const tier=Math.min(3,(C.tier|0));const major=(e%5===2);const str=1+tier*.28+(major?.55:0)+(C.lvl||0)*.04;
+    /* noisy skill order each week so finishes vary */
+    const order=roster.slice().sort((a,b)=>(skill[b]+R()*.85)-(skill[a]+R()*.85));
+    order.forEach((n,i)=>{C.wrF[n]=+((C.wrF[n]||0)+wrPts(i+1,str)).toFixed(2);C.wrF[n]=+(C.wrF[n]*.988).toFixed(2)})}
+  if(C.wr==null||!(C.wr>0))C.wr=Math.max(40,(C.earn|0)/450+(C.wins|0)*12+(C.spts|0)*.08);
+  /* normalize AI onto a realistic curve around the player using same relative finish order */
+  const sorted=roster.slice().sort((a,b)=>(C.wrF[b]||0)-(C.wrF[a]||0));
+  const p=Math.max(80,C.wr||100);
+  /* target: #1 ~1.6× player, #10 ~player, #25 ~0.55×, #49 ~0.2× — smooth geometric-ish */
+  sorted.forEach((n,i)=>{const t=p*(1.65*Math.pow(0.955,i));C.wrF[n]=+Math.max(12,t*(.92+((i*17)%9)*.02)).toFixed(2)});
+  C.wr=+(C.wr||0).toFixed(2);C.wrV=4}
+
 function crEnsure(C){if(!C)return C;
   if(C.fans==null)C.fans=120;
   if(typeof C.heat!=='object'||!C.heat)C.heat={};
   if(C.sponMood==null)C.sponMood=55;
-  if(C.wr==null)C.wr=Math.max(0,(C.earn|0)/500+(C.wins|0)*8+(C.spts|0)*.05);
-  if(typeof C.wrF!=='object'||!C.wrF){C.wrF={};for(const n of CR_RIVALS)C.wrF[n]=40+Math.random()*30;for(const n of CR_REGULARS)C.wrF[n]=15+Math.random()*25}
   if(!Array.isArray(C.wrHist))C.wrHist=[];
   if(C.inj!==null&&typeof C.inj!=='object')C.inj=null;
   if(typeof C.rc!=='object'||!C.rc)C.rc={yrs:[],pts:0,w:0,l:0};
   if(typeof C.rvRec!=='object'||!C.rvRec)C.rvRec={};
   if(C.qMiss==null)C.qMiss=0;
+  if(C.wr==null)C.wr=Math.max(0,(C.earn|0)/500+(C.wins|0)*8+(C.spts|0)*.05);
+  if(wrNeedsBackfill(C)||C.wrV!==4)wrBackfill(C);
   return C}
 {const _cl=crLoad;crLoad=function(){const C=_cl.apply(this,arguments);return C?crEnsure(C):null}}
 {const _cn=crNew;crNew=function(){return crEnsure(_cn.apply(this,arguments))}}
@@ -4176,15 +4208,18 @@ const WR_BASE=[100,60,40,30,24,20,18,16,14,12,10,9,8,7,6,5,4.5,4,3.5,3,2.5,2.2,2
 function wrFieldStr(E,C){return 1+(C.tier||0)*.28+(E&&E.major?.55:0)+(E&&E.ryder?.4:0)+(C.lvl||0)*.04}
 function wrPts(pos,str){const b=pos<=30?WR_BASE[pos-1]||.5:0;return +(b*str).toFixed(2)}
 function wrBoard(C){crEnsure(C);const rows=[{n:C.name,p:+(C.wr||0).toFixed(2),me:1}];
-  const names=new Set([...CR_RIVALS,...CR_REGULARS,...Object.keys(C.wrF||{})]);
-  for(const n of names){if(n===C.name)continue;rows.push({n,p:+(C.wrF[n]||0).toFixed(2),rv:CR_RIVALS.includes(n)})}
-  /* pad to 50 with ghost tour pros */
-  let i=0;while(rows.length<50){const n='Tour Pro '+(++i);if(names.has(n))continue;rows.push({n,p:+(8+((i*17)%40)+((C.season||1)%7)).toFixed(2)})}
-  rows.sort((a,b)=>b.p-a.p||(a.me?-1:b.me?1:0));rows.forEach((x,i)=>x.pos=i+1);return rows}
+  const roster=wrRoster(C);for(const n of roster){if(n===C.name)continue;rows.push({n,p:+(C.wrF[n]||0).toFixed(2),rv:CR_RIVALS.includes(n)})}
+  /* include any extra wrF names (legacy) that aren't placeholders */
+  for(const n of Object.keys(C.wrF||{})){if(n===C.name||/^Tour Pro\s/i.test(n)||rows.some(r=>r.n===n))continue;rows.push({n,p:+(C.wrF[n]||0).toFixed(2),rv:CR_RIVALS.includes(n)})}
+  rows.sort((a,b)=>b.p-a.p||(a.me?-1:b.me?1:0));rows.forEach((x,i)=>x.pos=i+1);return rows.slice(0,50)}
 function wrRankOf(C){return (wrBoard(C).find(x=>x.me)||{pos:99}).pos}
 function wrUpdate(C,T,E){crEnsure(C);const str=wrFieldStr(E,C);
-  for(const x of T.rows){const pts=wrPts(x.pos,str);if(x.me)C.wr=(C.wr||0)+pts;else if(x.n){C.wrF[x.n]=(C.wrF[x.n]||0)+pts}}
-  /* slight decay so ranking stays dynamic */
+  const placed=new Set();
+  for(const x of T.rows){const pts=wrPts(x.pos,str);if(x.me){C.wr=(C.wr||0)+pts;placed.add(C.name)}else if(x.n){C.wrF[x.n]=(C.wrF[x.n]||0)+pts;placed.add(x.n)}}
+  /* simulate finishes for AI not in this event table so the full top-50 keeps moving */
+  const roster=wrRoster(C).filter(n=>!placed.has(n));
+  const R=tnRng((((E&&E.cid)||'x').length*131+(C.ev||0)*977+(C.season||1)*17)>>>0);
+  const order=roster.slice().sort(()=>R()-.5);order.forEach((n,i)=>{const pos=Math.min(30,4+i);C.wrF[n]=(C.wrF[n]||0)+wrPts(pos,str)});
   C.wr=+(Math.max(0,(C.wr||0)*.985)).toFixed(2);
   for(const k of Object.keys(C.wrF))C.wrF[k]=+(Math.max(0,C.wrF[k]*.985)).toFixed(2);
   const rank=wrRankOf(C);C.wrHist.push({s:C.season,ev:C.ev,rank,pts:+(C.wr||0).toFixed(2),cid:E&&E.cid});if(C.wrHist.length>80)C.wrHist.shift();return rank}
@@ -4348,16 +4383,18 @@ function showSeasonRecap(send){const C=crLoad();if(!C||!send){showCareer();retur
     {t:'Rival record',b:riv.map(r=>`${r.n}: ${r.w}-${r.l}`).join(' · ')||'No meetings',sub:`Fans ${C.fans|0} · Sponsor mood ${C.sponMood|0}`},
     {t:'Onward',b:`Season ${C.season} awaits`,sub:rcSeason(C)?'Ryder Cup year — qualify by ranking.':'Climb the world ranking.'}
   ];
-  let i=0;const draw=()=>{const S=slides[i];show('scSetup',`<div class="pn" id="recPn" style="overflow:hidden"><div class="hdr"><h2>🎬 Season recap</h2></div>
-    <div id="recSlide" style="min-height:180px;background:linear-gradient(160deg,#0f1a22,#1a1020);border-radius:14px;padding:22px 18px;margin:8px 0;animation:recIn .45s ease">
-      <div style="font-size:12px;opacity:.6;letter-spacing:.08em">SLIDE ${i+1}/${slides.length}</div>
-      <div style="font:900 26px/1.2 system-ui,sans-serif;margin-top:8px;color:#ffd24a">${esc(S.t)}</div>
-      <div style="font:800 18px/1.35 system-ui,sans-serif;margin-top:10px">${S.b}</div>
-      <div style="opacity:.75;margin-top:8px;font-size:14px">${S.sub||''}</div>
+  let i=0;const draw=()=>{const S=slides[i];show('scSetup',`<div class="pn" id="recPn" style="overflow:hidden;color:#f5f8fc"><div class="hdr"><h2 style="color:#fff">🎬 Season recap</h2></div>
+    <div id="recSlide" style="min-height:200px;background:linear-gradient(160deg,#1a2a3a,#241830);border:1px solid #3a5068;border-radius:14px;padding:22px 18px;margin:8px 0;opacity:1;transform:none;animation:recSlideIn .35s ease">
+      <div style="font-size:12px;color:#a8c0d4;letter-spacing:.08em;font-weight:700">SLIDE ${i+1}/${slides.length}</div>
+      <div style="font:900 28px/1.2 system-ui,sans-serif;margin-top:10px;color:#ffd24a">${esc(S.t)}</div>
+      <div style="font:800 20px/1.4 system-ui,sans-serif;margin-top:12px;color:#ffffff">${S.b}</div>
+      <div style="margin-top:10px;font-size:15px;color:#d0e0ee;font-weight:600">${S.sub||''}</div>
     </div>
     <div style="display:flex;gap:8px"><button class="btn alt" id="recP" ${i===0?'disabled':''}>Back</button>
     <button class="btn" id="recN" style="flex:1">${i===slides.length-1?'Done':'Next'}</button></div></div>
-    <style>@keyframes recIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}</style>`);
+    <style>@keyframes recSlideIn{from{transform:translateX(16px)}to{transform:none}}</style>`);
+    /* force visible after paint — never leave opacity mid-fade */
+    requestAnimationFrame(()=>{const el=$('recSlide');if(el){el.style.opacity='1';el.style.transform='none'}});
     $('recP').onclick=()=>{i--;draw()};$('recN').onclick=()=>{if(i>=slides.length-1)showCareer();else{i++;draw()}}};
   draw()}
 
@@ -4398,7 +4435,7 @@ function showSeasonRecap(send){const C=crLoad();if(!C||!send){showCareer();retur
   }catch(e){console.warn(e)}return out}}
 
 {const _cs=crStart;crStart=function(){try{const C=crLoad();if(C){injTick(C);crSave(C)}}catch(e){}return _cs.apply(this,arguments)}}
-window.crEnsure=crEnsure;window.wrBoard=wrBoard;window.wrRankOf=wrRankOf;window.wrUpdate=wrUpdate;window.showWorldRank=showWorldRank;
+window.crEnsure=crEnsure;window.wrRoster=wrRoster;window.wrBackfill=wrBackfill;window.wrBoard=wrBoard;window.wrRankOf=wrRankOf;window.wrUpdate=wrUpdate;window.showWorldRank=showWorldRank;
 window.showSeasonRecap=showSeasonRecap;window.showPress=showPress;window.pressNeeded=pressNeeded;window.crExempt=crExempt;
 window.showQualifier=showQualifier;window.showRyder=showRyder;window.rcSeason=rcSeason;window.rcInject=rcInject;
 })();
