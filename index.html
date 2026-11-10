@@ -197,7 +197,7 @@ td.l,th.l{text-align:left}
 <div id="ldr" style="position:fixed;inset:0;z-index:9999;background:#0b1014;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#e8eef2;font:700 28px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.18em;transition:opacity .6s ease"><div>LOADING</div><div style="width:min(420px,70vw)"><div style="height:10px;background:#1a2430;border-radius:999px;overflow:hidden;border:1px solid #2a3a44"><div id="ldrBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3fe0b0,#7cf0d0);border-radius:999px;box-sizing:border-box;transition:none"></div></div><div id="ldrPct" style="margin-top:8px;text-align:center;font:800 14px/1.2 system-ui,sans-serif;letter-spacing:.12em;opacity:.85">0%</div></div></div><div id="fps"></div><div id="gimme"><div class="gb"><b>GIMME</b><span id="gimmeS"></span></div></div>
 <script type="text/x-tour" id="gsrc">
 'use strict';
-const VERSION='v4.46';
+const VERSION='v4.47';
 const TAU=Math.PI*2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t);
 const pad=n=>String(n).padStart(2,'0');
@@ -4152,6 +4152,256 @@ function tgDrawTargets(R,draw){const H=G.H;if(!H||!R||!R.disc)return;const night
     const draw=(m,M,c,flag,em)=>{if(!m)return;gl.uniformMatrix4fv(u.uM,false,M);gl.uniform3fv(u.uC,c);gl.uniform1f(u.uFlag,flag||0);gl.uniform1f(u.uEmis,em||0);gl.bindVertexArray(m.v);gl.drawElements(gl.TRIANGLES,m.n,m.it,0)};
     tgDrawTargets(R,draw);gl.enable(gl.CULL_FACE)}}catch(e){window.TGerr=String(e&&e.message||e)}return r}}
 
+
+/* v4.47: career — world ranking, Ryder Cup (every other season), press conferences, injuries, Monday qualifiers, season recap. Old saves get defaults via crEnsure. */
+(function(){
+/* ---------- defaults for old saves ---------- */
+function crEnsure(C){if(!C)return C;
+  if(C.fans==null)C.fans=120;
+  if(typeof C.heat!=='object'||!C.heat)C.heat={};
+  if(C.sponMood==null)C.sponMood=55;
+  if(C.wr==null)C.wr=Math.max(0,(C.earn|0)/500+(C.wins|0)*8+(C.spts|0)*.05);
+  if(typeof C.wrF!=='object'||!C.wrF){C.wrF={};for(const n of CR_RIVALS)C.wrF[n]=40+Math.random()*30;for(const n of CR_REGULARS)C.wrF[n]=15+Math.random()*25}
+  if(!Array.isArray(C.wrHist))C.wrHist=[];
+  if(C.inj!==null&&typeof C.inj!=='object')C.inj=null;
+  if(typeof C.rc!=='object'||!C.rc)C.rc={yrs:[],pts:0,w:0,l:0};
+  if(typeof C.rvRec!=='object'||!C.rvRec)C.rvRec={};
+  if(C.qMiss==null)C.qMiss=0;
+  return C}
+{const _cl=crLoad;crLoad=function(){const C=_cl.apply(this,arguments);return C?crEnsure(C):null}}
+{const _cn=crNew;crNew=function(){return crEnsure(_cn.apply(this,arguments))}}
+
+/* ---------- World ranking (updates after each event) ---------- */
+const WR_BASE=[100,60,40,30,24,20,18,16,14,12,10,9,8,7,6,5,4.5,4,3.5,3,2.5,2.2,2,1.8,1.6,1.4,1.2,1.1,1,.9];
+function wrFieldStr(E,C){return 1+(C.tier||0)*.28+(E&&E.major?.55:0)+(E&&E.ryder?.4:0)+(C.lvl||0)*.04}
+function wrPts(pos,str){const b=pos<=30?WR_BASE[pos-1]||.5:0;return +(b*str).toFixed(2)}
+function wrBoard(C){crEnsure(C);const rows=[{n:C.name,p:+(C.wr||0).toFixed(2),me:1}];
+  const names=new Set([...CR_RIVALS,...CR_REGULARS,...Object.keys(C.wrF||{})]);
+  for(const n of names){if(n===C.name)continue;rows.push({n,p:+(C.wrF[n]||0).toFixed(2),rv:CR_RIVALS.includes(n)})}
+  /* pad to 50 with ghost tour pros */
+  let i=0;while(rows.length<50){const n='Tour Pro '+(++i);if(names.has(n))continue;rows.push({n,p:+(8+((i*17)%40)+((C.season||1)%7)).toFixed(2)})}
+  rows.sort((a,b)=>b.p-a.p||(a.me?-1:b.me?1:0));rows.forEach((x,i)=>x.pos=i+1);return rows}
+function wrRankOf(C){return (wrBoard(C).find(x=>x.me)||{pos:99}).pos}
+function wrUpdate(C,T,E){crEnsure(C);const str=wrFieldStr(E,C);
+  for(const x of T.rows){const pts=wrPts(x.pos,str);if(x.me)C.wr=(C.wr||0)+pts;else if(x.n){C.wrF[x.n]=(C.wrF[x.n]||0)+pts}}
+  /* slight decay so ranking stays dynamic */
+  C.wr=+(Math.max(0,(C.wr||0)*.985)).toFixed(2);
+  for(const k of Object.keys(C.wrF))C.wrF[k]=+(Math.max(0,C.wrF[k]*.985)).toFixed(2);
+  const rank=wrRankOf(C);C.wrHist.push({s:C.season,ev:C.ev,rank,pts:+(C.wr||0).toFixed(2),cid:E&&E.cid});if(C.wrHist.length>80)C.wrHist.shift();return rank}
+function showWorldRank(){const C=crLoad();if(!C){showCareer();return}const L=wrBoard(C);const me=L.find(x=>x.me);
+  const top=L.slice(0,50);const s=show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="wrB">‹</button><h2>World ranking</h2></div>
+  <div class="gnote">Updates after every event. Points scale with finish and field strength (tier / majors). You are <b style="color:#3fe0b0">No. ${me.pos}</b> · ${me.p} pts · fans ${C.fans|0}</div>
+  <table id="wrTbl" style="width:100%;border-collapse:collapse;font-size:13px;text-align:left"><tr style="opacity:.65"><th style="width:36px">#</th><th>Player</th><th style="text-align:right">Pts</th></tr>
+  ${top.map(x=>`<tr style="${x.me?'background:rgba(63,224,176,.16);font-weight:800':''}"><td>${x.pos}</td><td>${esc(x.n)}${x.me?' (you)':x.rv?' <small style="color:#ff9a6a">RIVAL</small>':''}</td><td style="text-align:right">${x.p}</td></tr>`).join('')}</table>
+  <button class="btn c" id="wrOk" style="margin-top:12px">Back</button></div>`);
+  $('wrB').onclick=$('wrOk').onclick=showCareer}
+
+/* ---------- Injuries ---------- */
+const INJ_L=['Wrist strain','Back tightness','Twisted ankle','Shoulder pinch','Hand bruise'];
+function injRoll(C){if(C.inj&&C.inj.left>0)return;const R=Math.random();if(R>.08)return;/* ~8% */
+  C.inj={left:2+Math.floor(Math.random()*3),label:INJ_L[Math.floor(Math.random()*INJ_L.length)]}}
+function injTick(C){if(C.inj&&C.inj.left>0){C.inj.left--;if(C.inj.left<=0)C.inj=null}}
+{const _m=crMeterK;crMeterK=function(){let k=_m.apply(this,arguments);try{const C=crLoad();if(C&&C.inj&&C.inj.left>0&&((G.round&&G.round.car)||G.crCh||G.crQ))k=Math.max(.35,(k||DIFF[diffI()][1])*.82)}catch(e){}return k}}
+
+/* ---------- Monday qualifiers ---------- */
+function crExempt(C,E){crEnsure(C);if(!E)return true;if(C.cur)return true;/* already in */
+  const rank=wrRankOf(C);
+  if(E.ryder)return rank<=12||(C.rc&&C.rc.pts>=2);/* qualify by ranking */
+  if(E.major)return rank<=30||C.tier>=3&&C.wins>0;
+  if(C.tier>=2)return rank<=45;
+  return rank<=55||C.tier===0}
+function showQualifier(E){const C=crLoad();if(!C||!E){showCareer();return}
+  show('scSetup',`<div class="pn"><div class="hdr"><button class="ib" id="qB">‹</button><h2>Monday qualifier</h2></div>
+  <div class="gnote">You are not exempt for <b>${esc(E.name)}</b>. Play an 18-hole qualifier — finish top 8 of 24 to get in. Miss and you sit this one out.</div>
+  <div style="background:#121a20;border-radius:12px;padding:10px;margin:8px 0"><b>${esc(CID[E.cid].name)}</b><div style="opacity:.75;font-size:13px">${esc(CID[E.cid].tees[E.tee].n)} tees · world rank No. ${wrRankOf(C)}</div></div>
+  <button class="btn" id="qGo" style="margin-top:10px">Play qualifier</button>
+  <button class="btn alt c" id="qSkip" style="margin-top:8px">Skip event</button></div>`);
+  $('qB').onclick=showCareer;$('qSkip').onclick=()=>{const C2=crLoad();C2.qMiss=(C2.qMiss|0)+1;C2.ev++;if(C2.ev>=CR_SEASON){const send=crSeasonEnd(C2);crSave(C2);showSeasonRecap(send)}else{crSave(C2);showCareer()}};
+  $('qGo').onclick=()=>crStartQual(E)}
+function crStartQual(E){const C=crLoad();if(!C)return;G.crQ={E,goal:8};startRound(E.cid,E.tee,0,18,[{name:C.name,owner:1}],0,typeof todKey==='function'?todKey():undefined);
+  if(G.round){G.round.car=0;G.round.crQ=1;G.round.tour=1;G.round.tday=0;store('ts.round',{r:G.round,hs:null})}}
+{const _fr=finishRound;finishRound=function(){const r=G.round;if(!(r&&r.crQ&&r.n===18))return _fr.apply(this,arguments);
+  const tot=r.sc.reduce((a,b)=>a+b,0);const par=cpar(CID[r.cid],r.tee).reduce((a,b)=>a+b,0);const tp=tot-par;
+  delete r.tour;const out=_fr.apply(this,arguments);
+  try{const C=crLoad();const Q=G.crQ;G.crQ=null;if(!C||!Q)return out;
+    /* simulate 23 others */
+    const R=tnRng((Date.now()^tot)>>>0);const field=[{n:C.name,tp,me:1}];
+    for(let i=0;i<23;i++)field.push({n:'Q'+(i+1),tp:Math.round(tnGauss(R)*3.2+(CR_BASE[C.lvl]||0)+1)});
+    field.sort((a,b)=>a.tp-b.tp||(a.me?-1:1));field.forEach((x,i)=>x.pos=i+1);const me=field.find(x=>x.me);
+    const ok=me.pos<=(Q.goal||8);
+    if(ok){C.cur=crMakeField(C,Q.E);crSave(C);
+      show('scSetup',`<div class="pn"><div class="hdr"><h2>Qualified!</h2></div><div class="gnote">You finished ${crOrd(me.pos)} (${tnFmt(tp)}). You're in the field for <b>${esc(Q.E.name)}</b>.</div>
+      <button class="btn" id="qIn">Play the event</button><button class="btn alt c" id="qLater">Career hub</button></div>`);
+      $('qIn').onclick=()=>crStart();$('qLater').onclick=showCareer}
+    else{C.qMiss=(C.qMiss|0)+1;C.ev++;injTick(C);if(C.ev>=CR_SEASON){const send=crSeasonEnd(C);crSave(C);showSeasonRecap(send)}else{crSave(C);
+      show('scSetup',`<div class="pn"><div class="hdr"><h2>Missed</h2></div><div class="gnote">Finished ${crOrd(me.pos)} (${tnFmt(tp)}). Top ${Q.goal} got in — you'll sit this week out.</div>
+      <button class="btn c" id="qOut">Career</button></div>`);$('qOut').onclick=showCareer}}}catch(e){console.warn(e)}
+  return out}}
+
+/* ---------- Press conferences ---------- */
+const PR_WIN=[['How does this win feel?',[['Speechless — dreamed of this.',8,0,4],['Exactly the plan.',4,-2,6],['Putter showed up. Finally.',5,0,3],['This one\'s for the fans.',10,0,2]]],
+  ['Message for the field?',[['See you next week.',2,6,1],['They pushed me. Respect.',4,-4,5],['Check the board.',1,10,0],['Just happy to compete.',6,-2,4]]]];
+const PR_COL=[['Tough day. What happened?',[['Lost focus on the back.',-2,0,-4],['Credits to the winner.',3,-3,2],['I\'ll bounce back. Fast.',5,2,1],['No excuses. I was off.',1,0,3]]],
+  ['Fans are restless — anything to say?',[['Stick with me.',8,0,2],['I hear you. Work to do.',6,0,4],['Results will talk.',2,4,-1]]]];
+const PR_RV=[['You went toe-to-toe with a rival. Thoughts?',[['They know my name now.',3,8,2],['Great battle. Rematch soon.',5,-2,4],['I wanted that one more.',2,6,0],['Respect — then revenge.',1,10,1]]]];
+function pressPick(kind){return kind==='win'?PR_WIN:kind==='col'?PR_COL:PR_RV}
+function pressNeeded(C,res,T){if(!res)return null;if(res.pos===1)return 'win';
+  const prev=C.res&&C.res.length>1?C.res[C.res.length-2]:null;
+  if(prev&&prev.pos<=5&&res.pos>=18)return 'col';
+  if(res.tp>=6&&res.pos>=15)return 'col';
+  if(T&&T.rows){const me=T.rows.find(x=>x.me);const rvs=T.rows.filter(x=>x.rv);if(me&&rvs.some(r=>Math.abs(r.pos-me.pos)<=2||(r.pos===2&&me.pos===1)||(me.pos===2&&r.pos===1)))return 'rv'}
+  return null}
+function showPress(kind,res,back){const C=crLoad();const qs=pressPick(kind);let i=0;const picked=[];
+  const step=()=>{if(i>=qs.length){/* apply effects */
+    let df=0,dh=0,ds=0;for(const p of picked){df+=p[1];dh+=p[2];ds+=p[3]}
+    const C2=crLoad();if(C2){C2.fans=Math.max(0,(C2.fans|0)+df);C2.sponMood=Math.max(0,Math.min(100,(C2.sponMood|0)+ds));
+      const rv=CR_RIVALS[(C2.season*3+C2.ev)%CR_RIVALS.length];C2.heat[rv]=Math.max(0,Math.min(100,(C2.heat[rv]|0)+dh));crSave(C2)}
+    show('scSetup',`<div class="pn"><div class="hdr"><h2>🎙 Press conference</h2></div>
+    <div class="gnote">Wrapped. Fan Δ ${df>=0?'+':''}${df} · Sponsor mood Δ ${ds>=0?'+':''}${ds} · Rival heat Δ ${dh>=0?'+':''}${dh}</div>
+    ${picked.map(p=>`<div style="background:#121a20;border-radius:10px;padding:8px;margin:6px 0">“${esc(p[0])}”</div>`).join('')}
+    <button class="btn c" id="prOk" style="margin-top:12px">Done</button></div>`);$('prOk').onclick=back;return}
+    const [q,opts]=qs[i];show('scSetup',`<div class="pn"><div class="hdr"><h2>🎙 Press conference</h2></div>
+    <div class="gnote">${esc(res.name)} · Q${i+1}/${qs.length}</div>
+    <div style="background:#121a20;border-radius:12px;padding:10px;margin:8px 0"><b style="color:#5fd6ff">Reporter:</b> ${esc(q)}</div>
+    ${opts.map((o,k)=>`<button class="btn alt" data-k="${k}" style="margin-top:6px;text-align:left">${esc(o[0])}</button>`).join('')}</div>`);
+    document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{picked.push(opts[+b.dataset.k]);i++;step()})};
+  step()}
+
+/* ---------- Ryder Cup (every other season) ---------- */
+function rcSeason(C){return (C.season|0)%2===0}
+function rcInject(sched,C){if(!sched||!sched.evs||!rcSeason(C))return sched;
+  if(sched.evs.some(e=>e.ryder))return sched;
+  /* insert before last event */
+  const tee=0;const cid=sched.evs[0]?sched.evs[Math.min(3,sched.evs.length-1)].cid:'lookaway';
+  const E={cid,tee:crTeeFor(C,cid,0),name:'Ryder Cup',purse:0,major:0,ryder:1,tour:1};
+  const ix=Math.min(sched.evs.length-1,5);sched.evs.splice(ix,0,E);if(sched.evs.length>CR_SEASON+1)sched.evs.pop();
+  sched.rc=1;return sched}
+{const _bs=crBuildSched;crBuildSched=function(C){const s=_bs.apply(this,arguments);return rcInject(s,C)}}
+function rcTeam(C){/* USA default; rivals split */
+  const usa=[C.name],eur=[];
+  CR_RIVALS.forEach((n,i)=>(i%2?eur:usa).push(n));
+  CR_REGULARS.slice(0,6).forEach((n,i)=>(i%2?usa:eur).push(n));
+  while(usa.length<6)usa.push('USA '+usa.length);while(eur.length<6)eur.push('EUR '+eur.length);
+  return{usa:usa.slice(0,6),eur:eur.slice(0,6)}}
+function showRyder(){const C=crLoad();if(!C){showCareer();return}const E=C.cur&&C.cur.ev&&C.cur.ev.ryder?C.cur.ev:crEvent(C);
+  if(!E||!E.ryder){showCareer();return}
+  if(!crExempt(C,E)){showQualifier(E);return}
+  const T=rcTeam(C);const side=T.usa.includes(C.name)?'USA':'EUR';
+  G.rc={side,T,sess:0,us:0,eu:0,log:[]};
+  rcHub()}
+function rcHub(){const R=G.rc;if(!R){showCareer();return}
+  const sess=['Fourballs','Foursomes','Singles'][R.sess]||'Done';
+  show('scSetup',`<div class="pn"><div class="hdr"><h2>🏌️ Ryder Cup</h2></div>
+  <div class="gnote">USA ${R.us} — ${R.eu} Europe · Session: <b>${esc(sess)}</b> · You: ${R.side}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">
+    <div style="background:#102040;border-radius:10px;padding:8px"><b style="color:#7eb6ff">Team USA</b><div style="font-size:12px;margin-top:4px">${R.T.usa.map(esc).join('<br>')}</div></div>
+    <div style="background:#401010;border-radius:10px;padding:8px"><b style="color:#ff9a6a">Team Europe</b><div style="font-size:12px;margin-top:4px">${R.T.eur.map(esc).join('<br>')}</div></div>
+  </div>
+  ${R.log.length?`<div class="sec">Results</div>${R.log.map(l=>`<div style="font-size:13px">${esc(l)}</div>`).join('')}`:''}
+  <button class="btn" id="rcGo" style="margin-top:10px">${R.sess>=3?'Final trophy':'Play '+sess}</button>
+  <button class="btn alt c" id="rcBk" style="margin-top:8px">Career</button></div>`);
+  $('rcBk').onclick=showCareer;
+  $('rcGo').onclick=()=>{if(R.sess>=3)rcEnd();else if(R.sess===2)rcPlaySingles();else rcSimSession()}}
+function rcSimSession(){const R=G.rc,C=crLoad();const name=['Fourballs','Foursomes'][R.sess];
+  const wr=wrRankOf(C);const bias=(R.side==='USA'?1:-1)*((50-wr)*.01);
+  let us=0,eu=0;for(let i=0;i<4;i++){const roll=Math.random()+bias;if(roll>.55)us+=1;else if(roll<.45)eu+=1;else{us+=.5;eu+=.5}}
+  R.us+=us;R.eu+=eu;R.log.push(`${name}: USA ${us} – ${eu} EUR`);R.sess++;crSave(C);rcHub()}
+function rcPlaySingles(){const C=crLoad();const E=C.cur&&C.cur.ev||crEvent(C);const opp=(G.rc.side==='USA'?G.rc.T.eur:G.rc.T.usa)[0]||'Rival';
+  G.rc.opp=opp;G.rc.singles=1;C.cur=C.cur||crMakeField(C,E);crSave(C);
+  startRound(E.cid,E.tee,0,18,[{name:C.name,owner:1}],0,typeof todKey==='function'?todKey():undefined);
+  if(G.round){G.round.car=1;G.round.ryder=1;G.round.tour=1;G.round.tday=0;store('ts.round',{r:G.round,hs:null})}}
+{const _fr2=finishRound;finishRound=function(){const r=G.round;if(!(r&&r.ryder&&r.n===18))return _fr2.apply(this,arguments);
+  const tot=r.sc.reduce((a,b)=>a+b,0);const par=cpar(CID[r.cid],r.tee).reduce((a,b)=>a+b,0);const tp=tot-par;
+  delete r.tour;const out=_fr2.apply(this,arguments);
+  try{const C=crLoad();const R=G.rc;if(!R)return out;
+    const Rng=tnRng((tot*13)^0x9e);const otp=Math.round((CR_BASE[C.lvl]||0)+1.2+tnGauss(Rng)*2.5);
+    let us=0,eu=0;const win=tp<otp;const half=tp===otp;
+    if(R.side==='USA'){if(win)us=1;else if(half){us=.5;eu=.5}else eu=1}
+    else{if(win)eu=1;else if(half){us=.5;eu=.5}else us=1}
+    R.us+=us;R.eu+=eu;R.log.push(`Singles vs ${R.opp}: you ${tnFmt(tp)} / opp ${tnFmt(otp)} → ${win?'WIN':half?'HALF':'LOSS'}`);R.sess=3;crSave(C);rcHub()}catch(e){console.warn(e)}
+  return out}}
+function rcEnd(){const C=crLoad(),R=G.rc;if(!C||!R){showCareer();return}
+  const win=R.us===R.eu?'tied':((R.us>R.eu)=== (R.side==='USA')?'won':'lost');
+  C.rc.yrs.push({s:C.season,us:R.us,eu:R.eu,side:R.side,win});C.rc.pts=(C.rc.pts|0)+(win==='won'?2:win==='tied'?1:0);
+  if(win==='won')C.rc.w=(C.rc.w|0)+1;if(win==='lost')C.rc.l=(C.rc.l|0)+1;
+  C.fans=(C.fans|0)+(win==='won'?25:win==='tied'?8:3);
+  /* advance past ryder event */
+  C.cur=null;C.ev++;injTick(C);wrUpdate(C,{rows:[{n:C.name,pos:win==='won'?1:win==='tied'?5:12,me:1}]}, {ryder:1,name:'Ryder Cup'});
+  if(C.ev>=CR_SEASON){const send=crSeasonEnd(C);crSave(C);G.rc=null;showSeasonRecap(send);return}
+  crSave(C);G.rc=null;
+  show('scSetup',`<div class="pn"><div class="hdr"><h2>Ryder Cup ${win==='won'?'Champions':win==='tied'?'Tied':'Defeat'}</h2></div>
+  <div style="text-align:center;font:900 28px/1.2 system-ui;margin:8px 0">USA ${R.us} — ${R.eu} EUR</div>
+  <div class="gnote">You played for ${R.side}. ${win==='won'?'The cup is yours!':win==='tied'?'Shared glory.':'They take it this time.'}</div>
+  <button class="btn c" id="rcX">Career</button></div>`);$('rcX').onclick=showCareer}
+
+/* ---------- Season recap slideshow ---------- */
+function showSeasonRecap(send){const C=crLoad();if(!C||!send){showCareer();return}
+  const sr=C.res.filter(x=>x.s===send.s);const best=sr.length?sr.reduce((a,b)=>a.tp<b.tp?a:b):null;
+  const wr0=(C.wrHist.find(h=>h.s===send.s)||{}).rank||'—';
+  const wr1=(C.wrHist.filter(h=>h.s===send.s).slice(-1)[0]||{}).rank||wrRankOf(C);
+  const riv=CR_RIVALS.map(n=>{const rec=C.rvRec[n]||{w:0,l:0};return{n,w:rec.w|0,l:rec.l|0}});
+  const slides=[
+    {t:`Season ${send.s} · Recap`,b:`${DIFF[send.lvl][0]} · ${CR_TIERS[send.tier].n} tier`,sub:'Your year on tour'},
+    {t:'The numbers',b:`${send.wins} win${send.wins===1?'':'s'} · Ranked No. ${send.rank}`,sub:`${crMoney(send.earn)} earned · ${send.pts} season pts`},
+    {t:'Best round',b:best?`${esc(best.name)} · ${tnFmt(best.tp)} (${best.tie?'T':''}${crOrd(best.pos)})`:'No starts',sub:best?esc(CID[best.cid]?CID[best.cid].name:'') :''},
+    {t:'World ranking',b:`No. ${wr0} → No. ${wr1}`,sub:`${+(C.wr||0).toFixed(1)} OWGR-style pts`},
+    {t:'Rival record',b:riv.map(r=>`${r.n}: ${r.w}-${r.l}`).join(' · ')||'No meetings',sub:`Fans ${C.fans|0} · Sponsor mood ${C.sponMood|0}`},
+    {t:'Onward',b:`Season ${C.season} awaits`,sub:rcSeason(C)?'Ryder Cup year — qualify by ranking.':'Climb the world ranking.'}
+  ];
+  let i=0;const draw=()=>{const S=slides[i];show('scSetup',`<div class="pn" id="recPn" style="overflow:hidden"><div class="hdr"><h2>🎬 Season recap</h2></div>
+    <div id="recSlide" style="min-height:180px;background:linear-gradient(160deg,#0f1a22,#1a1020);border-radius:14px;padding:22px 18px;margin:8px 0;animation:recIn .45s ease">
+      <div style="font-size:12px;opacity:.6;letter-spacing:.08em">SLIDE ${i+1}/${slides.length}</div>
+      <div style="font:900 26px/1.2 system-ui,sans-serif;margin-top:8px;color:#ffd24a">${esc(S.t)}</div>
+      <div style="font:800 18px/1.35 system-ui,sans-serif;margin-top:10px">${S.b}</div>
+      <div style="opacity:.75;margin-top:8px;font-size:14px">${S.sub||''}</div>
+    </div>
+    <div style="display:flex;gap:8px"><button class="btn alt" id="recP" ${i===0?'disabled':''}>Back</button>
+    <button class="btn" id="recN" style="flex:1">${i===slides.length-1?'Done':'Next'}</button></div></div>
+    <style>@keyframes recIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}</style>`);
+    $('recP').onclick=()=>{i--;draw()};$('recN').onclick=()=>{if(i>=slides.length-1)showCareer();else{i++;draw()}}};
+  draw()}
+
+/* ---------- Wire into career finish / hub / play ---------- */
+{const _cf=crFinish;crFinish=function(tot){let snap=null;try{const C0=crLoad();if(C0&&C0.cur)snap={T:null,E:C0.cur.ev,s:C0.season,ev:C0.ev}}catch(e){}
+  const r=_cf.apply(this,arguments);
+  try{const C=crLoad();if(!C||!C.res.length)return r;const res=C.res[C.res.length-1];
+    const fakeRows=[{n:C.name,pos:res.pos,me:1,tp:res.tp}];
+    for(const n of CR_RIVALS)fakeRows.push({n,pos:Math.max(1,res.pos+(Math.random()>.5?1:-1)*Math.ceil(Math.random()*6)),rv:1});
+    const evMeta={cid:res.cid,major:/major/i.test(res.name||''),name:res.name};
+    /* stamp season for hist before season-end bump already applied */
+    const histS=res.s;wrUpdate(C,{rows:fakeRows},evMeta);if(C.wrHist.length)C.wrHist[C.wrHist.length-1].s=histS;
+    injRoll(C);crSave(C);
+  }catch(e){console.warn(e)}return r}}
+{const _cr=crResult;crResult=function(T,me,res,note,promo,send,hof){const r=_cr.apply(this,arguments);
+  try{const C=crLoad();const bk=$('crBk');if(!bk)return r;
+    /* season recap takes over when season ended */
+    if(send){const fn=bk.onclick;bk.textContent='Season recap';bk.onclick=()=>showSeasonRecap(send);return r}
+    const kind=pressNeeded(C,res,T);if(kind&&!$('crPr')){const b=document.createElement('button');b.className='btn';b.id='crPr';b.style.marginTop='8px';
+      b.innerHTML=kind==='win'?'🎙 Victory presser<small>Answers move fans / rivals / sponsors</small>':kind==='col'?'🎙 Damage control<small>Press wants answers</small>':'🎙 Rival presser<small>The matchup is the story</small>';
+      const fn=bk.onclick;b.onclick=()=>showPress(kind,res,()=>{if(fn)fn();else showCareer()});bk.before(b)}
+    /* injury banner */
+    if(C&&C.inj&&C.inj.left>0){const d=document.createElement('div');d.style.cssText='background:#2a1510;border:1px solid #a05030;border-radius:10px;padding:8px;margin-top:8px;font-size:13px';
+      d.innerHTML=`<b style="color:#ff9a6a">🤕 ${esc(C.inj.label)}</b> — swing meter slowed · ${C.inj.left} event${C.inj.left>1?'s':''} left`;bk.before(d)}
+  }catch(e){console.warn(e)}return r}}
+
+{const _sc=showCareer;showCareer=function(){const out=_sc.apply(this,arguments);
+  try{const C=crLoad();const p=$('crPlay');if(!C||!p)return out;const E=C.cur?C.cur.ev:crEvent(C);
+    /* world rank chip */
+    if(!$('crWR')){const me=wrBoard(C).find(x=>x.me);const d=document.createElement('button');d.className='btn alt';d.id='crWR';d.style.marginTop='8px';
+      d.innerHTML=`World ranking · No. ${me.pos}<small>${me.p} pts · top 50 · fans ${C.fans|0}</small>`;d.onclick=showWorldRank;p.after(d)}
+    /* injury chip */
+    if(C.inj&&C.inj.left>0&&!$('crInj')){const d=document.createElement('div');d.id='crInj';d.style.cssText='background:#2a1510;border:1px solid #a05030;border-radius:10px;padding:8px;margin-top:8px;font-size:13px';
+      d.innerHTML=`🤕 <b>${esc(C.inj.label)}</b> — meter slowed · <b>${C.inj.left}</b> event${C.inj.left>1?'s':''} remaining`;p.before(d)}
+    /* Ryder / qualifier routing for Play */
+    if(E&&E.ryder){p.innerHTML=`Ryder Cup<small>Every other season · qualify by world ranking</small>`;p.onclick=()=>{if(!crExempt(C,E))showQualifier(E);else{if(!C.cur){C.cur=crMakeField(C,E);crSave(C)}showRyder()}}}
+    else if(!C.cur&&E&&!crExempt(C,E)){p.innerHTML=`Monday qualifier<small>Not exempt for ${esc(E.name)} · finish top 8 to get in</small>`;p.onclick=()=>showQualifier(E)}
+  }catch(e){console.warn(e)}return out}}
+
+{const _cs=crStart;crStart=function(){try{const C=crLoad();if(C){injTick(C);crSave(C)}}catch(e){}return _cs.apply(this,arguments)}}
+window.crEnsure=crEnsure;window.wrBoard=wrBoard;window.wrRankOf=wrRankOf;window.wrUpdate=wrUpdate;window.showWorldRank=showWorldRank;
+window.showSeasonRecap=showSeasonRecap;window.showPress=showPress;window.pressNeeded=pressNeeded;window.crExempt=crExempt;
+window.showQualifier=showQualifier;window.showRyder=showRyder;window.rcSeason=rcSeason;window.rcInject=rcInject;
+})();
 
 </script>
 <script>(function(){function boot(){var s=document.createElement('script');s.text=document.getElementById('gsrc').textContent;document.body.appendChild(s)}
